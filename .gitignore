@@ -8,8 +8,10 @@ node_modules/
 
 # Production
 /dist
-/build
 /release
+
+# Keep build/icons for Electron app icons
+# but ignore other build artifacts
 
 # Misc
 .DS_Store
