@@ -1,0 +1,35 @@
+{
+  "name": "cloudhop-os-v2",
+  "version": "2.0.0",
+  "description": "CloudHop 2.0 - A modular operating system for next-generation communication",
+  "main": "electron/main.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "electron:dev": "electron .",
+    "electron:build": "electron-builder"
+  },
+  "keywords": [
+    "cloudhop",
+    "communication",
+    "electron",
+    "react"
+  ],
+  "author": "CloudHop Team",
+  "license": "MIT",
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "electron": "^25.0.0",
+    "electron-builder": "^24.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^4.3.0"
+  }
+}
