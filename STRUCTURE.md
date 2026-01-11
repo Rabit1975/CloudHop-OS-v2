@@ -1,7 +1,86 @@
 # CloudHop OS 2.0 - Structure Documentation
 
 ## Overview
-CloudHop 2.0 is structured as a modular operating system with clear separation between layers.
+CloudHop 2.0 is structured as a modular operating system with clear separation between layers. The architecture follows an OS pattern where the kernel handles boot and core providers, core engines provide system-level services, modules are independent micro-apps, and the UI system provides a unified design language.
+
+## Architecture Layers
+
+### Kernel Layer (`/src/kernel`)
+The OS boot layer containing foundational infrastructure:
+- **Providers**: Context providers that form the OS kernel stack
+- **Auth**: Authentication and session management
+- **Routing**: Application routing and navigation
+- **Errors**: Error boundaries and handling
+
+### Core Layer (`/src/core`)
+System engines providing core services:
+- **Supabase**: Database client and schema
+- **Realtime**: Real-time channel subscriptions
+- **Signaling**: WebRTC signaling for calls
+- **Presence**: User presence tracking
+- **User**: User state management
+- **Settings**: Settings persistence
+- **AI**: AI client and tools
+
+### Modules Layer (`/src/modules`)
+Independent micro-applications:
+- **Chat**: Messaging and conversations
+- **Meetings**: Video/audio calls
+- **Spaces**: HopSpaces galaxy and interiors
+- **Profile**: User profile management
+- **Settings**: Settings UI
+- **AI Tools**: AI assistant interface
+
+### UI Layer (`/src/ui`)
+Design system and reusable components:
+- **Components**: Button, Input, Modal, Toast, Card
+- **Layout**: AppLayout, Sidebar
+- **Primitives**: Flex, Stack
+- **Theme**: Design tokens, light/dark themes
+- **Animations**: Transition utilities
+- **Logo**: Logo components
+
+## Boot Sequence
+
+### 1. main.tsx (Entry Point)
+```typescript
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <AppProviders>
+      <App />
+    </AppProviders>
+  </React.StrictMode>
+)
+```
+
+### 2. AppProviders (Kernel Stack)
+Provider nesting order (outside → inside):
+1. AuthProvider - Authentication state
+2. SessionProvider - Session management
+3. SettingsProvider - App settings
+4. RealtimeProvider - Supabase realtime
+5. AIProvider - AI capabilities
+6. ThemeProvider - Theme state
+
+### 3. App.tsx (OS Shell)
+```typescript
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <Router />
+    </ErrorBoundary>
+  )
+}
+```
+
+### 4. Router (Navigation)
+Uses react-router-dom with routes:
+- `/` - Spaces (default)
+- `/chat` - Chat module
+- `/meetings` - Meetings module
+- `/profile` - Profile module
+- `/settings` - Settings module
+- `/ai-tools` - AI Tools module
 
 ## Directory Structure
 
@@ -10,12 +89,13 @@ CloudHop 2.0 is structured as a modular operating system with clear separation b
 - **tsconfig.json** - TypeScript configuration with path aliases
 - **vite.config.ts** - Vite build configuration
 - **.gitignore** - Git ignore rules
+- **.env.example** - Environment variables template
 
 ### /electron
 Electron desktop application configuration
-- **main.ts** - Electron main process
-- **preload.ts** - Preload script for renderer-main communication
-- **electron-builder.json** - Build configuration for desktop apps
+- **main.ts** - Electron main process with VITE_DEV_SERVER_URL support
+- **preload.ts** - Secure IPC bridge (cloudhop namespace)
+- **electron-builder.json** - Build config with msix target for Microsoft Store
 
 ### /build
 Build assets for desktop applications
@@ -35,11 +115,11 @@ Main application source code
 OS-level kernel layer - Core application infrastructure
 
 **Providers** (`/kernel/providers/`)
-- AppProviders.tsx - Root provider wrapper
+- AppProviders.tsx - Root provider wrapper (proper nesting order)
 - AuthProvider.tsx - Authentication context
 - SessionProvider.tsx - Session management
 - SettingsProvider.tsx - App settings
-- RealtimeProvider.tsx - Real-time connections
+- RealtimeProvider.tsx - Real-time connections (exposes supabase client)
 - AIProvider.tsx - AI capabilities
 - ThemeProvider.tsx - Theme management
 
@@ -48,7 +128,7 @@ OS-level kernel layer - Core application infrastructure
 - useAuth.ts - Auth hook
 
 **Routing** (`/kernel/routing/`)
-- Router.tsx - Main router component
+- Router.tsx - react-router-dom with BrowserRouter
 - routes.ts - Route definitions
 
 **Errors** (`/kernel/errors/`)
@@ -58,11 +138,11 @@ OS-level kernel layer - Core application infrastructure
 Core engines and services
 
 **Supabase** (`/core/supabase/`)
-- client.ts - Supabase client configuration
+- client.ts - Supabase client using createClient from @supabase/supabase-js
 - types.ts - Database type definitions
 
 **Realtime** (`/core/realtime/`)
-- useRealtime.ts - Real-time hook
+- useRealtime.ts - Real-time hook (deprecated, use RealtimeProvider)
 - channels.ts - Channel definitions
 
 **Signaling** (`/core/signaling/`)
@@ -82,8 +162,8 @@ Core engines and services
 - settingsStore.ts - Settings state store
 
 **AI** (`/core/ai/`)
-- AIClient.ts - AI client implementation
-- tools.ts - AI tool definitions
+- AIClient.ts - Vercel AI SDK client (createOpenAI with gateway.ai.vercel.dev)
+- tools.ts - AI helper functions (summarize, rewrite, translate, extractActions, thinking, transcribe)
 - contextBuilder.ts - Context builder for AI
 
 #### /src/modules
@@ -93,7 +173,7 @@ Feature modules - Main application features
 - ChatModule.tsx - Main chat module
 - ChatSidebar.tsx - Chat sidebar
 - ChatWindow.tsx - Chat window
-- useChatActions.ts - Chat actions hook
+- useChatActions.ts - Chat actions with ChatUpdate type (title, description, is_archived)
 
 **Meetings** (`/modules/meetings/`)
 - MeetingsModule.tsx - Meetings module
@@ -103,7 +183,7 @@ Feature modules - Main application features
 
 **Spaces** (`/modules/spaces/`)
 - SpacesModule.tsx - Spaces module
-- useHopSpaces.ts - Spaces management hook
+- useHopSpaces.ts - Supabase integration with hop_spaces table + realtime subscriptions + deterministic galaxy coordinates
 - GalaxyView.tsx - Galaxy view component
 - SpaceInterior.tsx - Space interior view
 
@@ -188,6 +268,32 @@ The following path aliases are configured in tsconfig.json:
 @types/* -> ./src/types/*
 ```
 
+## Key Dependencies
+
+### Production
+- **react** & **react-dom** (^18.2.0) - UI framework
+- **react-router-dom** (^6.20.0) - Client-side routing
+- **@supabase/supabase-js** (^2.38.0) - Backend and realtime database
+- **ai** (^3.0.0) - Vercel AI SDK for AI integration
+
+### Development
+- **typescript** (^5.0.0) - Type safety
+- **vite** (^4.3.0) - Build tool and dev server
+- **electron** (^30.0.0) - Desktop app framework
+- **electron-builder** (^24.0.0) - Desktop app packaging
+- **cross-env** (^7.0.3) - Cross-platform environment variables
+
+## Environment Variables
+
+Required environment variables (see .env.example):
+
+```bash
+VITE_SUPABASE_URL=your_supabase_url_here
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+VITE_AI_GATEWAY_API_KEY=your_ai_gateway_key_here
+VITE_SIGNALING_SERVER_URL=your_signaling_server_url_here  # Optional
+```
+
 ## Getting Started
 
 ### Installation
@@ -198,22 +304,23 @@ npm install
 ### Development
 ```bash
 npm run dev              # Start Vite dev server
-npm run electron:dev     # Start Electron in dev mode
+npm run electron:dev     # Start Electron in dev mode (VITE_DEV_SERVER_URL=http://localhost:5173)
 ```
 
 ### Building
 ```bash
 npm run build            # Build for web
-npm run electron:build   # Build Electron app
+npm run electron:build   # Build Electron app (includes msix for Microsoft Store)
 ```
 
 ## Architecture Principles
 
 1. **Layered Architecture**: Clear separation between kernel, core, modules, and UI
-2. **Provider Pattern**: Context providers for cross-cutting concerns
-3. **Modular Design**: Self-contained feature modules
+2. **Provider Pattern**: Context providers for cross-cutting concerns with proper nesting
+3. **Modular Design**: Self-contained feature modules that can be developed independently
 4. **Type Safety**: Full TypeScript coverage with strict mode
 5. **Component Library**: Reusable UI components with consistent design
+6. **OS Boot Pattern**: main.tsx → AppProviders → App → Router → Modules
 
 ## Next Steps
 
