@@ -1,10 +1,9 @@
 import React from 'react'
-import { SettingsPanel } from './SettingsPanel'
+import SettingsPanel from './SettingsPanel'
 
-export function SettingsModule() {
+export default function SettingsModule() {
   return (
-    <div style={{ padding: '20px' }}>
-      <h2>Settings</h2>
+    <div className="settings-module">
       <SettingsPanel />
     </div>
   )

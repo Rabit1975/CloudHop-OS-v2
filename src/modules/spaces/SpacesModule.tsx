@@ -1,17 +1,10 @@
-import React, { useState } from 'react'
-import { GalaxyView } from './GalaxyView'
-import { SpaceInterior } from './SpaceInterior'
+import React from 'react'
+import GalaxyView from './GalaxyView'
 
-export function SpacesModule() {
-  const [selectedSpace, setSelectedSpace] = useState<string | null>(null)
-
+export default function SpacesModule() {
   return (
-    <div style={{ height: '100%' }}>
-      {selectedSpace ? (
-        <SpaceInterior spaceId={selectedSpace} onBack={() => setSelectedSpace(null)} />
-      ) : (
-        <GalaxyView onSelectSpace={setSelectedSpace} />
-      )}
+    <div className="spaces-module">
+      <GalaxyView />
     </div>
   )
 }

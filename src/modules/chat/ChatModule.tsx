@@ -1,10 +1,10 @@
 import React from 'react'
-import { ChatSidebar } from './ChatSidebar'
-import { ChatWindow } from './ChatWindow'
+import ChatSidebar from './ChatSidebar'
+import ChatWindow from './ChatWindow'
 
-export function ChatModule() {
+export default function ChatModule() {
   return (
-    <div style={{ display: 'flex', height: '100%' }}>
+    <div className="chat-module">
       <ChatSidebar />
       <ChatWindow />
     </div>

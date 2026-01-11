@@ -1,10 +1,9 @@
 import React from 'react'
-import { ProfileCard } from './ProfileCard'
+import ProfileCard from './ProfileCard'
 
-export function ProfileModule() {
+export default function ProfileModule() {
   return (
-    <div style={{ padding: '20px' }}>
-      <h2>Profile</h2>
+    <div className="profile-module">
       <ProfileCard />
     </div>
   )
