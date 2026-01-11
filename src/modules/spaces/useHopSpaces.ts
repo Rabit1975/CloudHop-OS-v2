@@ -1,104 +1,70 @@
-import { useState, useEffect } from 'react'
-import { supabase } from '@core/supabase/client'
+import { useState, useEffect } from 'react';
+import { HopSpace, HopSpaceType, HopSpaceMood } from '../utils/types';
+import { api } from '../../services/mockApi';
 
-interface HopSpace {
-  id: string
-  name: string
-  description?: string
-  type: string
-  is_public: boolean
-  created_at: string
-}
+export const useHopSpaces = () => {
+    const [spaces, setSpaces] = useState<HopSpace[]>([]);
+    const [loading, setLoading] = useState(true);
 
-export function useHopSpaces() {
-  const [spaces, setSpaces] = useState<HopSpace[]>([])
-  const [loading, setLoading] = useState(true)
-  const [currentSpace, setCurrentSpace] = useState<string | null>(null)
+    useEffect(() => {
+        const loadGalaxy = async () => {
+            setLoading(true);
+            const data = await api.getPublicSpaces();
+            
+            // Transform linear data into galaxy coordinates
+            const galaxyData: HopSpace[] = data.map((s, i) => ({
+                id: s.id,
+                name: s.name,
+                type: ['music', 'fluid_art', 'ideas', 'world', 'anima'][i % 5] as HopSpaceType,
+                mood: ['calm', 'dreamy', 'intense', 'ethereal'][i % 4] as HopSpaceMood,
+                created_at: new Date().toISOString(),
+                cover_image_url: s.image,
+                background_url: s.image,
+                orbit_links: [],
+                galaxy_position: {
+                    x: 50 + Math.cos(i) * (20 + i * 2),
+                    y: 50 + Math.sin(i) * (20 + i * 2),
+                    layer: 1
+                },
+                glow_intensity: 1 + Math.random(),
+                metadata: {}
+            }));
+            
+            setSpaces(galaxyData);
+            setLoading(false);
+        };
+        void loadGalaxy();
+    }, []);
 
-  useEffect(() => {
-    fetchPublicSpaces()
-    
-    // Subscribe to realtime updates
-    const channel = supabase
-      .channel('hop_spaces')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'hop_spaces' },
-        () => {
-          fetchPublicSpaces()
-        }
-      )
-      .subscribe()
+    const createSpace = (data: { name: string; type: HopSpaceType; mood: HopSpaceMood }) => {
+        const newSpace: HopSpace = {
+            id: `new-${Date.now()}`,
+            name: data.name,
+            type: data.type,
+            mood: data.mood,
+            created_at: new Date().toISOString(),
+            cover_image_url: `https://picsum.photos/seed/${data.name}/400/400`,
+            background_url: `https://picsum.photos/seed/${data.name}-bg/800/600`,
+            orbit_links: [],
+            galaxy_position: { x: 50, y: 50, layer: 1 },
+            glow_intensity: 2,
+            metadata: {}
+        };
 
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [])
+        setSpaces(prev => [...prev, newSpace]);
+        
+        // Animate to position
+        setTimeout(() => {
+            setSpaces(prev => prev.map(s => s.id === newSpace.id ? { 
+                ...s, 
+                galaxy_position: { 
+                    ...s.galaxy_position,
+                    x: 50 + (Math.random() * 20 - 10), 
+                    y: 50 + (Math.random() * 20 - 10) 
+                } 
+            } : s));
+        }, 100);
+    };
 
-  const fetchPublicSpaces = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('hop_spaces')
-        .select('*')
-        .eq('is_public', true)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      
-      // Add deterministic galaxy coordinates based on space.id
-      const spacesWithCoords = (data || []).map((space: any) => ({
-        ...space,
-        x: generateCoordinate(space.id, 0),
-        y: generateCoordinate(space.id, 1),
-        z: generateCoordinate(space.id, 2)
-      }))
-      
-      setSpaces(spacesWithCoords)
-    } catch (error) {
-      console.error('Error fetching spaces:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const createSpace = async (name: string, type: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('hop_spaces')
-        .insert([{ name, type, is_public: true }])
-        .select()
-
-      if (error) throw error
-      console.log('Space created:', data)
-    } catch (error) {
-      console.error('Error creating space:', error)
-    }
-  }
-
-  const joinSpace = (spaceId: string) => {
-    setCurrentSpace(spaceId)
-  }
-
-  const leaveSpace = () => {
-    setCurrentSpace(null)
-  }
-
-  return {
-    spaces,
-    loading,
-    currentSpace,
-    createSpace,
-    joinSpace,
-    leaveSpace
-  }
-}
-
-// Generate deterministic coordinates from space ID
-function generateCoordinate(id: string, index: number): number {
-  let hash = 0
-  const str = id + index
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i)
-    hash = hash & hash
-  }
-  return (hash % 2000) - 1000
-}
+    return { spaces, loading, createSpace };
+};

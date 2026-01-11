@@ -1,22 +1,24 @@
-import React from 'react'
-import { useHopSpaces } from './useHopSpaces'
+import React from 'react';
+import { HopSpace } from '../utils/types';
+import { FluidArtSpace } from './fluid-art/FluidArtSpace';
+import { MusicSpace } from './music/MusicSpace';
+import { IdeasSpace } from './ideas/IdeasSpace';
+import { WorldSpace } from './world/WorldSpace';
+import { AnimaSpace } from './anima/AnimaSpace';
 
-interface SpaceInteriorProps {
-  spaceId: string
-  onBack: () => void
-}
-
-export function SpaceInterior({ spaceId, onBack }: SpaceInteriorProps) {
-  const { onlineUsers } = useHopSpaces()
-
-  return (
-    <div style={{ height: '100%', padding: '20px' }}>
-      <button onClick={onBack}>← Back to Galaxy</button>
-      <h2>Space Interior: {spaceId}</h2>
-      <div>
-        <h3>Online Users ({onlineUsers.length})</h3>
-        {/* Render online users */}
-      </div>
-    </div>
-  )
-}
+export const SpaceInterior = ({ space }: { space: HopSpace }) => {
+  switch (space.type) {
+    case 'fluid_art':
+      return <FluidArtSpace space={space} />;
+    case 'music':
+      return <MusicSpace space={space} />;
+    case 'ideas':
+      return <IdeasSpace space={space} />;
+    case 'world':
+      return <WorldSpace space={space} />;
+    case 'anima':
+      return <AnimaSpace space={space} />;
+    default:
+      return <div className="text-white">Unknown Space Type</div>;
+  }
+};
