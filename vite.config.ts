@@ -1,0 +1,25 @@
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'path'
+
+// https://vitejs.dev/config/
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@kernel': path.resolve(__dirname, './src/kernel'),
+      '@core': path.resolve(__dirname, './src/core'),
+      '@modules': path.resolve(__dirname, './src/modules'),
+      '@ui': path.resolve(__dirname, './src/ui'),
+      '@lib': path.resolve(__dirname, './src/lib'),
+      '@types': path.resolve(__dirname, './src/types')
+    }
+  },
+  server: {
+    port: 3000
+  },
+  build: {
+    outDir: 'dist'
+  }
+})
