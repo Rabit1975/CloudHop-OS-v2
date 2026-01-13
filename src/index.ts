@@ -5,3 +5,4 @@
 export * from "./core/gfn"
 export * from "./core/twitch"
 export * from "./components/twitch"
+export * from "./modules/strikecore"
