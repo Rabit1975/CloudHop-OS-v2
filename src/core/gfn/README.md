@@ -46,7 +46,7 @@ Complete type definitions for all GFN runtime contracts. Organized by functional
 ## Usage
 
 ```typescript
-import { GfnClient, GfnTypes } from "@cloudhop/core/gfn"
+import { GfnClient, GfnTypes } from "cloudhop-os-v2"
 
 // Implement the abstract class in your Electron native bridge
 class ElectronGfnBridge extends GfnClient {
