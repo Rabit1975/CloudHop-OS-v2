@@ -3,7 +3,7 @@ name: Auto-Merge Dry-Run → main (preview PRs only)
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "30 3 * * *"
+    - cron: "30 3 * * *" # nightly (optional)
   push:
     branches:
       - '**'
@@ -35,6 +35,11 @@ jobs:
         run: |
           git config user.name "cloudhop-bot"
           git config user.email "cloudhop-bot@users.noreply.github.com"
+
+      - name: Configure origin remote with token
+        run: |
+          echo "Configuring origin remote with token for authenticated git ops"
+          git remote set-url origin https://x-access-token:${{ secrets.GH_AUTOFIX_PAT || github.token }}@github.com/${{ github.repository }}
 
       - name: Gather remote branches
         id: gather
