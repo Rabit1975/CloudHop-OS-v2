@@ -8,7 +8,29 @@ export function MusicDiagnosticsPanel() {
   const [diagnostics, setDiagnostics] = useState('')
   const { transportRef } = useMusicEngineContext()
 
-  const refresh = async () => {
+  useEffect(() => {
+    const refresh = async () => {
+      const musicInfo = getMusicDiagnostics()
+      const djInfo = getDJDiagnostics()
+      const transportInfo = await getTransportDiagnostics(transportRef.current)
+
+      const output = [
+        formatMusicDiagnostics(musicInfo),
+        '',
+        formatTransportDiagnostics(transportInfo),
+        '',
+        formatDJDiagnostics(djInfo)
+      ].join('\n')
+
+      setDiagnostics(output)
+    }
+
+    refresh()
+    const interval = setInterval(refresh, 2000)
+    return () => clearInterval(interval)
+  }, [transportRef])
+
+  const handleManualRefresh = async () => {
     const musicInfo = getMusicDiagnostics()
     const djInfo = getDJDiagnostics()
     const transportInfo = await getTransportDiagnostics(transportRef.current)
@@ -23,12 +45,6 @@ export function MusicDiagnosticsPanel() {
 
     setDiagnostics(output)
   }
-
-  useEffect(() => {
-    refresh()
-    const interval = setInterval(refresh, 2000)
-    return () => clearInterval(interval)
-  }, [])
 
   return (
     <div style={{
@@ -54,7 +70,7 @@ export function MusicDiagnosticsPanel() {
           Music Diagnostics
         </div>
         <button
-          onClick={refresh}
+          onClick={handleManualRefresh}
           style={{
             padding: '6px 12px',
             background: 'var(--accent-color, #e94560)',

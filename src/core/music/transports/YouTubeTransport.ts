@@ -82,10 +82,8 @@ export class YouTubeTransport implements MusicTransport {
     if (!document.getElementById(this.elementId)) {
       const div = document.createElement('div')
       div.id = this.elementId
-      div.style.position = 'absolute'
-      div.style.left = '-9999px'
-      div.style.width = '1px'
-      div.style.height = '1px'
+      div.style.display = 'none'
+      div.setAttribute('aria-hidden', 'true')
       document.body.appendChild(div)
     }
   }
