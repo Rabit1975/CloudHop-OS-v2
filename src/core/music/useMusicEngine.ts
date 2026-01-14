@@ -1,151 +1,220 @@
-import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../../lib/supabase'
-import { Track, Playlist, PlaybackState } from './types'
+import { useCallback, useEffect, useState } from 'react'
+import { useMusicState, MusicTrack, selectCurrentTrack, selectStatus, selectVolume, selectCurrentTime, selectDuration, selectError } from './MusicState'
+import { useMusicEngineContext } from './MusicEngineProvider'
+import { canControlPlayback } from './MusicPermissions'
 
-export function useMusicEngine(channelId: string) {
-  const [currentTrack, setCurrentTrack] = useState<Track | null>(null)
-  const [currentPlaylist, setCurrentPlaylist] = useState<Playlist | null>(null)
-  const [playbackState, setPlaybackState] = useState<PlaybackState>('stopped')
-  const [volume, setVolumeState] = useState(50)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
+export type UserRole = 'host' | 'guest' | 'viewer'
 
-  // Sync state with other users via Supabase
-  useEffect(() => {
-    if (!channelId) return
+export interface UseMusicEngineOptions {
+  role?: UserRole
+  autoPlay?: boolean
+  onTrackEnd?: () => void
+}
 
-    const channel = supabase
-      .channel(`music:${channelId}`)
-      .on(
-        'postgres_changes',
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'music_sessions',
-          filter: `channel_id=eq.${channelId}`
-        },
-        (payload) => {
-          if (payload.new) {
-            const session = payload.new
-            if (session.current_track) {
-              setCurrentTrack({
-                id: session.current_track,
-                title: session.track_title || 'Unknown',
-                artist: session.track_artist || 'Unknown',
-                duration: session.track_duration || 0,
-                thumbnail: session.track_thumbnail || ''
-              })
-            }
-            setPlaybackState(session.is_playing ? 'playing' : 'paused')
-            setCurrentTime(session.current_time || 0)
+export function useMusicEngine(options: UseMusicEngineOptions = {}) {
+  const { role = 'viewer', autoPlay = false, onTrackEnd } = options
+  
+  // Select state slices with selectors
+  const currentTrack = useMusicState(selectCurrentTrack)
+  const status = useMusicState(selectStatus)
+  const volume = useMusicState(selectVolume)
+  const currentTime = useMusicState(selectCurrentTime)
+  const duration = useMusicState(selectDuration)
+  const error = useMusicState(selectError)
+  
+  // Get actions from store
+  const setCurrentTrack = useMusicState((state) => state.setCurrentTrack)
+  const setStatus = useMusicState((state) => state.setStatus)
+  const setVolume = useMusicState((state) => state.setVolume)
+  const setCurrentTime = useMusicState((state) => state.setCurrentTime)
+  const setDuration = useMusicState((state) => state.setDuration)
+  const setError = useMusicState((state) => state.setError)
+  const setLoading = useMusicState((state) => state.setLoading)
+  
+  // Get transport from context
+  const { transportRef, settings } = useMusicEngineContext()
+  const [timeUpdateInterval, setTimeUpdateInterval] = useState<any>(null)
+
+  // Load track
+  const loadTrack = useCallback(async (track: MusicTrack) => {
+    if (!transportRef.current) {
+      setError('Transport not initialized')
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const url = track.url || track.id
+      await transportRef.current.load(url)
+      
+      setCurrentTrack(track)
+      const trackDuration = await transportRef.current.getDuration()
+      setDuration(trackDuration)
+      setStatus('stopped')
+      
+      if (autoPlay) {
+        await play()
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load track')
+      setStatus('error')
+    } finally {
+      setLoading(false)
+    }
+  }, [transportRef, setCurrentTrack, setDuration, setStatus, setError, setLoading, autoPlay])
+
+  // Play
+  const play = useCallback(async () => {
+    if (!canControlPlayback(role)) {
+      setError('No permission to control playback')
+      return
+    }
+
+    if (!transportRef.current) {
+      setError('Transport not initialized')
+      return
+    }
+
+    try {
+      await transportRef.current.play()
+      setStatus('playing')
+      setError(null)
+      
+      // Start time updates
+      if (timeUpdateInterval) {
+        clearInterval(timeUpdateInterval)
+      }
+      
+      const interval = setInterval(async () => {
+        if (transportRef.current) {
+          const time = await transportRef.current.getCurrentTime()
+          setCurrentTime(time)
+          
+          // Check if track ended
+          const dur = await transportRef.current.getDuration()
+          if (time >= dur && onTrackEnd) {
+            clearInterval(interval)
+            onTrackEnd()
           }
         }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
+      }, 1000)
+      
+      setTimeUpdateInterval(interval)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to play')
+      setStatus('error')
     }
-  }, [channelId])
+  }, [role, transportRef, setStatus, setError, setCurrentTime, timeUpdateInterval, onTrackEnd])
 
-  const play = useCallback(() => {
-    const player = (window as any).musicPlayer
-    if (player) {
-      player.play()
-      setPlaybackState('playing')
-      updateSession({ is_playing: true })
+  // Pause
+  const pause = useCallback(async () => {
+    if (!canControlPlayback(role)) {
+      setError('No permission to control playback')
+      return
     }
-  }, [])
 
-  const pause = useCallback(() => {
-    const player = (window as any).musicPlayer
-    if (player) {
-      player.pause()
-      setPlaybackState('paused')
-      updateSession({ is_playing: false })
+    if (!transportRef.current) {
+      setError('Transport not initialized')
+      return
     }
-  }, [])
 
-  const skip = useCallback(() => {
-    const player = (window as any).musicPlayer
-    if (player) {
-      player.nextTrack()
-    }
-  }, [])
-
-  const seek = useCallback((seconds: number) => {
-    const player = (window as any).musicPlayer
-    if (player) {
-      player.seek(seconds)
-      setCurrentTime(seconds)
-      updateSession({ current_time: seconds })
-    }
-  }, [])
-
-  const setVolume = useCallback((vol: number) => {
-    const player = (window as any).musicPlayer
-    if (player) {
-      player.setVolume(vol)
-      setVolumeState(vol)
-    }
-  }, [])
-
-  const loadTrack = useCallback(async (track: Track) => {
-    const player = (window as any).musicPlayer
-    if (player) {
-      player.loadTrack(track.id)
-      setCurrentTrack(track)
-      await updateSession({
-        current_track: track.id,
-        track_title: track.title,
-        track_artist: track.artist,
-        track_duration: track.duration,
-        track_thumbnail: track.thumbnail
-      })
-    }
-  }, [])
-
-  const loadPlaylist = useCallback(async (playlist: Playlist) => {
-    const player = (window as any).musicPlayer
-    if (player) {
-      player.loadPlaylist(playlist.id)
-      setCurrentPlaylist(playlist)
-      if (playlist.tracks && playlist.tracks.length > 0) {
-        setCurrentTrack(playlist.tracks[0])
+    try {
+      await transportRef.current.pause()
+      setStatus('paused')
+      
+      if (timeUpdateInterval) {
+        clearInterval(timeUpdateInterval)
+        setTimeUpdateInterval(null)
       }
-      await updateSession({
-        playlist_id: playlist.id,
-        current_track: playlist.tracks?.[0]?.id
-      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to pause')
     }
-  }, [])
+  }, [role, transportRef, setStatus, setError, timeUpdateInterval])
 
-  const updateSession = async (data: any) => {
-    if (!channelId) return
+  // Stop
+  const stop = useCallback(async () => {
+    if (!canControlPlayback(role)) {
+      setError('No permission to control playback')
+      return
+    }
 
-    await supabase
-      .from('music_sessions')
-      .upsert({
-        channel_id: channelId,
-        ...data,
-        updated_at: new Date().toISOString()
-      })
-  }
+    if (!transportRef.current) {
+      setError('Transport not initialized')
+      return
+    }
+
+    try {
+      await transportRef.current.stop()
+      setStatus('stopped')
+      setCurrentTime(0)
+      
+      if (timeUpdateInterval) {
+        clearInterval(timeUpdateInterval)
+        setTimeUpdateInterval(null)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to stop')
+    }
+  }, [role, transportRef, setStatus, setCurrentTime, setError, timeUpdateInterval])
+
+  // Seek
+  const seek = useCallback(async (seconds: number) => {
+    if (!canControlPlayback(role)) {
+      setError('No permission to control playback')
+      return
+    }
+
+    if (!transportRef.current) {
+      setError('Transport not initialized')
+      return
+    }
+
+    try {
+      await transportRef.current.seek(seconds)
+      setCurrentTime(seconds)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to seek')
+    }
+  }, [role, transportRef, setCurrentTime, setError])
+
+  // Set volume
+  const changeVolume = useCallback(async (vol: number) => {
+    if (!transportRef.current) {
+      return
+    }
+
+    try {
+      await transportRef.current.setVolume(vol)
+      setVolume(vol)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to set volume')
+    }
+  }, [transportRef, setVolume, setError])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (timeUpdateInterval) {
+        clearInterval(timeUpdateInterval)
+      }
+    }
+  }, [timeUpdateInterval])
 
   return {
     currentTrack,
-    currentPlaylist,
-    playbackState,
-    isPlaying: playbackState === 'playing',
+    status,
+    isPlaying: status === 'playing',
     volume,
     currentTime,
     duration,
+    error,
+    loadTrack,
     play,
     pause,
-    skip,
+    stop,
     seek,
-    setVolume,
-    loadTrack,
-    loadPlaylist
+    setVolume: changeVolume
   }
 }
