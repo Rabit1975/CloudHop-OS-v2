@@ -1,4 +1,4 @@
-import { UserRole } from '../shared/UserRole'
+import { UserRole } from './shared/UserRole'
 
 export interface MusicPermissions {
   canControlPlayback: boolean
