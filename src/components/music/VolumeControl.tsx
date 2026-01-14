@@ -1,13 +1,11 @@
-import React, { useState } from 'react'
+import React, { useEffect } from 'react'
 import { useMusicEngine } from '../../core/music/useMusicEngine'
 
 export function VolumeControl() {
   const { volume, setVolume } = useMusicEngine()
-  const [localVolume, setLocalVolume] = useState(volume)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseFloat(e.target.value)
-    setLocalVolume(newVolume)
     setVolume(newVolume)
   }
 
@@ -26,7 +24,7 @@ export function VolumeControl() {
         min="0"
         max="1"
         step="0.01"
-        value={localVolume}
+        value={volume}
         onChange={handleChange}
         style={{
           flex: 1,
@@ -34,7 +32,7 @@ export function VolumeControl() {
         }}
       />
       <span style={{ color: 'var(--text-secondary, #aaa)', fontSize: '12px', minWidth: '40px' }}>
-        {Math.round(localVolume * 100)}%
+        {Math.round(volume * 100)}%
       </span>
     </div>
   )

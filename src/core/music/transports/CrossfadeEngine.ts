@@ -66,10 +66,10 @@ export class CrossfadeEngine {
 
     return setup.then(() => {
       return new Promise<void>((resolve) => {
-        let currentStep = 0
+        let currentStep = 1 // Start at 1 so we begin fading in
 
         const fade = () => {
-          if (currentStep >= steps || !this.isCrossfading) {
+          if (currentStep > steps || !this.isCrossfading) {
             transport.setVolume(targetVolume).then(() => {
               this.currentAnimationFrame = null
               resolve()

@@ -15,7 +15,7 @@ export function useSpaceMusicNotifications(
   const status = useMusicState(selectStatus)
   const currentTrack = useMusicState((state) => state.currentTrack)
   const prevTrackIdRef = useRef<string | null>(null)
-  const prevStatusRef = useRef<string>(status)
+  const prevStatusRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!onNotification) return
@@ -36,9 +36,15 @@ export function useSpaceMusicNotifications(
   useEffect(() => {
     if (!onNotification) return
 
-    // Only notify on status changes
+    // Only notify on status changes (including initial mount)
     if (status !== prevStatusRef.current) {
+      const wasInitialMount = prevStatusRef.current === null
       prevStatusRef.current = status
+      
+      // Skip notifications on initial mount if status is idle
+      if (wasInitialMount && status === 'idle') {
+        return
+      }
       
       if (status === 'playing') {
         onNotification({
