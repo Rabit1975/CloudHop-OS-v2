@@ -2,7 +2,7 @@ import React from 'react'
 import { NowPlayingWidget } from './NowPlayingWidget'
 import { TransportControls } from './TransportControls'
 import { VolumeControl } from './VolumeControl'
-import { UserRole } from '../../core/music/useMusicEngine'
+import { UserRole } from '../../core/music/shared/UserRole'
 
 export interface MusicEnginePanelProps {
   role?: UserRole

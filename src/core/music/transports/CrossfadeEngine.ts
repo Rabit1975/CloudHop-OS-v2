@@ -56,27 +56,28 @@ export class CrossfadeEngine {
     await transport.pause()
   }
 
-  private async fadeIn(transport: MusicTransport, duration: number): Promise<void> {
+  private fadeIn(transport: MusicTransport, duration: number): Promise<void> {
     const targetVolume = 1 // Assume full volume target
     const steps = Math.ceil(duration / 16) // ~60fps
     const volumeStep = targetVolume / steps
 
-    await transport.setVolume(0)
-    await transport.play()
+    return new Promise(async (resolve) => {
+      await transport.setVolume(0)
+      await transport.play()
 
-    return new Promise((resolve) => {
       let currentStep = 0
 
-      const fade = async () => {
+      const fade = () => {
         if (currentStep >= steps || !this.isCrossfading) {
-          await transport.setVolume(targetVolume)
-          this.currentAnimationFrame = null
-          resolve()
+          transport.setVolume(targetVolume).then(() => {
+            this.currentAnimationFrame = null
+            resolve()
+          })
           return
         }
 
         const newVolume = Math.min(targetVolume, volumeStep * currentStep)
-        await transport.setVolume(newVolume)
+        transport.setVolume(newVolume).catch(console.error)
         currentStep++
 
         this.currentAnimationFrame = requestAnimationFrame(fade)

@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useMusicState, MusicTrack, selectCurrentTrack, selectStatus, selectVolume, selectCurrentTime, selectDuration, selectError } from './MusicState'
 import { useMusicEngineContext } from './MusicEngineProvider'
 import { canControlPlayback } from './MusicPermissions'
-
-export type UserRole = 'host' | 'guest' | 'viewer'
+import { UserRole } from './shared/UserRole'
 
 export interface UseMusicEngineOptions {
   role?: UserRole
@@ -33,7 +32,7 @@ export function useMusicEngine(options: UseMusicEngineOptions = {}) {
   
   // Get transport from context
   const { transportRef, settings } = useMusicEngineContext()
-  const [timeUpdateInterval, setTimeUpdateInterval] = useState<any>(null)
+  const timeUpdateIntervalRef = useRef<any>(null)
 
   // Load track
   const loadTrack = useCallback(async (track: MusicTrack) => {
@@ -58,11 +57,12 @@ export function useMusicEngine(options: UseMusicEngineOptions = {}) {
         await transportRef.current.play()
         setStatus('playing')
         
-        // Start time updates
-        if (timeUpdateInterval) {
-          clearInterval(timeUpdateInterval)
+        // Clear existing interval if any
+        if (timeUpdateIntervalRef.current) {
+          clearInterval(timeUpdateIntervalRef.current)
         }
         
+        // Start time updates
         const interval = setInterval(async () => {
           if (transportRef.current) {
             const time = await transportRef.current.getCurrentTime()
@@ -72,12 +72,13 @@ export function useMusicEngine(options: UseMusicEngineOptions = {}) {
             const dur = await transportRef.current.getDuration()
             if (time >= dur && onTrackEnd) {
               clearInterval(interval)
+              timeUpdateIntervalRef.current = null
               onTrackEnd()
             }
           }
         }, 1000)
         
-        setTimeUpdateInterval(interval)
+        timeUpdateIntervalRef.current = interval
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load track')
@@ -85,7 +86,7 @@ export function useMusicEngine(options: UseMusicEngineOptions = {}) {
     } finally {
       setLoading(false)
     }
-  }, [transportRef, setCurrentTrack, setDuration, setStatus, setError, setLoading, autoPlay, role, timeUpdateInterval, setCurrentTime, onTrackEnd, setTimeUpdateInterval])
+  }, [transportRef, setCurrentTrack, setDuration, setStatus, setError, setLoading, autoPlay, role, setCurrentTime, onTrackEnd])
 
   // Play
   const play = useCallback(async () => {
@@ -105,10 +106,6 @@ export function useMusicEngine(options: UseMusicEngineOptions = {}) {
       setError(null)
       
       // Start time updates
-      if (timeUpdateInterval) {
-        clearInterval(timeUpdateInterval)
-      }
-      
       const interval = setInterval(async () => {
         if (transportRef.current) {
           const time = await transportRef.current.getCurrentTime()
@@ -118,18 +115,18 @@ export function useMusicEngine(options: UseMusicEngineOptions = {}) {
           const dur = await transportRef.current.getDuration()
           if (time >= dur && onTrackEnd) {
             clearInterval(interval)
-            setTimeUpdateInterval(null)
+            timeUpdateIntervalRef.current = null
             onTrackEnd()
           }
         }
       }, 1000)
       
-      setTimeUpdateInterval(interval)
+      timeUpdateIntervalRef.current = interval
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to play')
       setStatus('error')
     }
-  }, [role, transportRef, setStatus, setError, setCurrentTime, timeUpdateInterval, onTrackEnd])
+  }, [role, transportRef, setStatus, setError, setCurrentTime, onTrackEnd])
 
   // Pause
   const pause = useCallback(async () => {
@@ -147,14 +144,14 @@ export function useMusicEngine(options: UseMusicEngineOptions = {}) {
       await transportRef.current.pause()
       setStatus('paused')
       
-      if (timeUpdateInterval) {
-        clearInterval(timeUpdateInterval)
-        setTimeUpdateInterval(null)
+      if (timeUpdateIntervalRef.current) {
+        clearInterval(timeUpdateIntervalRef.current)
+        timeUpdateIntervalRef.current = null
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to pause')
     }
-  }, [role, transportRef, setStatus, setError, timeUpdateInterval])
+  }, [role, transportRef, setStatus, setError])
 
   // Stop
   const stop = useCallback(async () => {
@@ -173,14 +170,14 @@ export function useMusicEngine(options: UseMusicEngineOptions = {}) {
       setStatus('stopped')
       setCurrentTime(0)
       
-      if (timeUpdateInterval) {
-        clearInterval(timeUpdateInterval)
-        setTimeUpdateInterval(null)
+      if (timeUpdateIntervalRef.current) {
+        clearInterval(timeUpdateIntervalRef.current)
+        timeUpdateIntervalRef.current = null
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to stop')
     }
-  }, [role, transportRef, setStatus, setCurrentTime, setError, timeUpdateInterval])
+  }, [role, transportRef, setStatus, setCurrentTime, setError])
 
   // Seek
   const seek = useCallback(async (seconds: number) => {
@@ -219,11 +216,11 @@ export function useMusicEngine(options: UseMusicEngineOptions = {}) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (timeUpdateInterval) {
-        clearInterval(timeUpdateInterval)
+      if (timeUpdateIntervalRef.current) {
+        clearInterval(timeUpdateIntervalRef.current)
       }
     }
-  }, [timeUpdateInterval])
+  }, [])
 
   return {
     currentTrack,

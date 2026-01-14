@@ -1,5 +1,6 @@
 import React from 'react'
-import { useMusicEngine, UserRole } from '../../core/music/useMusicEngine'
+import { useMusicEngine } from '../../core/music/useMusicEngine'
+import { UserRole } from '../../core/music/shared/UserRole'
 
 export interface TransportControlsProps {
   role?: UserRole

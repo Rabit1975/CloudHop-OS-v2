@@ -1,4 +1,4 @@
-export type UserRole = 'host' | 'dj' | 'guest' | 'viewer'
+import { UserRole } from '../shared/UserRole'
 
 export interface DJPermissions {
   canAddToQueue: boolean

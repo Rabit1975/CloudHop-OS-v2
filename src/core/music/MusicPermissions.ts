@@ -1,4 +1,4 @@
-export type UserRole = 'host' | 'guest' | 'viewer'
+import { UserRole } from '../shared/UserRole'
 
 export interface MusicPermissions {
   canControlPlayback: boolean
@@ -10,6 +10,7 @@ export interface MusicPermissions {
 export function getMusicPermissions(role: UserRole): MusicPermissions {
   switch (role) {
     case 'host':
+    case 'dj':
       return {
         canControlPlayback: true,
         canModifyQueue: true,
