@@ -1,0 +1,1218 @@
+cat > cloudhop-spectrum.patch <<'PATCH' ----- BEGIN PATCH ----- *** Begin Patch *** Add File: src/components/music/NowPlayingRibbon.tsx +import React, { useEffect, useState } from "react"; +import { useMusicState } from "../../core/music/MusicState"; +import { useThemeEngine } from "../../shell/themeEngine"; +import { useSpaceContext } from "../../core/spaces/useSpaceContext"; + +export const NowPlayingRibbon: React.FC = () => {
+
+const { current, status } = useMusicState((s) => ({
+current: s.current,
+status: s.status,
+}));
+const { tokens } = useThemeEngine();
+const { space } = useSpaceContext();
+const [visible, setVisible] = useState(false);
+useEffect(() => {
+if (status === "playing" && current) {
+Code
+ setVisible(true);
+Code
+ const timeout = setTimeout(() => setVisible(false), 4000);
+Code
+ return () => clearTimeout(timeout);
+}
+if (status !== "playing") {
+Code
+ setVisible(false);
+}
+}, [current, status]);
+if (!current) return null;
+const containerStyle: React.CSSProperties = {
+position: "fixed",
+top: 0,
+left: "50%",
+transform: "translateX(-50%)",
+zIndex: 9999,
+pointerEvents: "none",
+transition: "transform 320ms cubic-bezier(.2,.9,.2,1), opacity 240ms",
+opacity: visible ? 1 : 0,
+transformOrigin: "top center",
+marginTop: visible ? 12 : -48,
+width: "min(880px, calc(100% - 48px))",
+};
+const ribbonStyle: React.CSSProperties = {
+pointerEvents: "auto",
+display: "flex",
+gap: 12,
+alignItems: "center",
+padding: "10px 16px",
+borderRadius: 10,
+background: tokens?.accentSoft ?? "rgba(0,0,0,0.75)",
+color: tokens?.textOnAccent ?? "#fff",
+boxShadow: "0 6px 30px rgba(0,0,0,0.35)",
+backdropFilter: "blur(6px)",
+fontWeight: 600,
+};
+return (
+<div style={containerStyle} aria-live="polite" aria-atomic>
+Code
+ <div style={ribbonStyle}>
+Code
+   <div style={{ display: "flex", flexDirection: "column" }}>
+Code
+     <div style={{ fontSize: 14 }}>
+Code
+       Now Playing{space ? ` in ${space.name}` : ""}:
+Code
+     </div>
+Code
+     <div style={{ marginTop: 4, fontSize: 15 }}>{current.title}</div>
+Code
+   </div>
+Code
+   <div style={{ marginLeft: "auto", opacity: 0.85, fontSize: 13 }}>
+Code
+     {current.artist ?? ""}
+Code
+   </div>
+Code
+ </div>
+</div>
+); +};
+*** End Patch *** Add File: src/shell/diagnostics/MusicDiagnosticsSection.tsx +import React from "react"; +import { runMusicDiagnostics } from "../../core/music/diagnostics/MusicDiagnostics"; +import { runTransportDiagnostics } from "../../core/music/diagnostics/TransportDiagnostics"; +import { runInfluenceDiagnostics } from "../../core/music/diagnostics/InfluenceDiagnostics"; +import { runSpaceSoundtrackDiagnostics } from "../../core/music/diagnostics/SpaceSoundtrackDiagnostics"; +import { runDJDiagnostics } from "../../core/music/diagnostics/DJDiagnostics"; +import { useThemeEngine } from "../themeEngine"; + +export const MusicDiagnosticsSection: React.FC = () => {
+
+const { tokens } = useThemeEngine();
+const music = runMusicDiagnostics();
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+const transportGlobal = (window && (window as any).__musicTransport) ?? null;
+const transport = runTransportDiagnostics(transportGlobal);
+const influence = runInfluenceDiagnostics();
+const space = runSpaceSoundtrackDiagnostics();
+const dj = runDJDiagnostics();
+return (
+<div
+Code
+ style={{
+Code
+   padding: 18,
+Code
+   background: tokens.panel ?? "#0b0b0b",
+Code
+   color: tokens.text ?? "#fff",
+Code
+   borderRadius: 10,
+Code
+ }}
+Code
+ <h3 style={{ marginTop: 0 }}>Music Engine Diagnostics</h3>
+Code
+ <section style={{ marginBottom: 12 }}>
+Code
+   <strong>Core</strong>
+Code
+   <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(music, null, 2)}</pre>
+Code
+ </section>
+Code
+ <section style={{ marginBottom: 12 }}>
+Code
+   <strong>Transport</strong>
+Code
+   <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(transport, null, 2)}</pre>
+Code
+ </section>
+Code
+ <section style={{ marginBottom: 12 }}>
+Code
+   <strong>Influence</strong>
+Code
+   <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(influence, null, 2)}</pre>
+Code
+ </section>
+Code
+ <section style={{ marginBottom: 12 }}>
+Code
+   <strong>Space Soundtrack</strong>
+Code
+   <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(space, null, 2)}</pre>
+Code
+ </section>
+Code
+ <section>
+Code
+   <strong>DJ</strong>
+Code
+   <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(dj, null, 2)}</pre>
+Code
+ </section>
+</div>
+); +};
+*** End Patch *** Add File: src/components/music/InfluenceChainVisualizer.tsx +import React from "react"; +import { useSpaceContext } from "../../core/spaces/useSpaceContext"; +import { useMusicState } from "../../core/music/MusicState"; +import { analyzeTrack } from "../../core/music/influence/TrackAnalyzer"; +import { fuseMoods } from "../../core/spaces/music/fuseMoods"; +import { runInfluenceDiagnostics } from "../../core/music/diagnostics/InfluenceDiagnostics"; +import { useThemeEngine } from "../../shell/themeEngine"; + +const ChainItem: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+
+<div style={{ display: "flex", justifyContent: "space-between", padding: "6px 8px" }}>
+<div style={{ opacity: 0.8 }}>{label}</div>
+<div style={{ fontWeight: 700 }}>{value}</div>
+</div>
++); + +export const InfluenceChainVisualizer: React.FC = () => {
+
+const { space } = useSpaceContext();
+const { current } = useMusicState((s) => ({ current: s.current }));
+const influence = runInfluenceDiagnostics();
+const { tokens } = useThemeEngine();
+const spaceMood = space?.mood ?? "none";
+const trackMood = current ? analyzeTrack(current.title).mood : "none";
+const fused = space && current ? fuseMoods(spaceMood, trackMood) : "none";
+return (
+<div
+Code
+ style={{
+Code
+   padding: 16,
+Code
+   borderRadius: 10,
+Code
+   background: tokens.panel ?? "#0b0b0b",
+Code
+   color: tokens.text ?? "#fff",
+Code
+ }}
+Code
+ <h4 style={{ marginTop: 0 }}>Influence Chain</h4>
+Code
+ <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+Code
+   <ChainItem label="Space Mood" value={spaceMood} />
+Code
+   <ChainItem label="Track Mood" value={trackMood} />
+Code
+   <ChainItem label="Fused Mood" value={fused} />
+Code
+   <div style={{ paddingTop: 8 }}>
+Code
+     <strong>Active Influence Sources</strong>
+Code
+     {influence.activeSources.length === 0 ? (
+Code
+       <div style={{ opacity: 0.7 }}>None</div>
+Code
+     ) : (
+Code
+       <ul>
+Code
+         {influence.activeSources.map((s) => (
+Code
+           <li key={s}>{s}</li>
+Code
+         ))}
+Code
+       </ul>
+Code
+     )}
+Code
+   </div>
+Code
+   {influence.conflicts && (
+Code
+     <div style={{ color: tokens.warn ?? "#ffb86b", marginTop: 8 }}>
+Code
+       Influence conflict detected
+Code
+     </div>
+Code
+   )}
+Code
+ </div>
+</div>
+); +};
+*** End Patch *** Add File: src/core/music/MusicEngineService.tsx +import React, { useEffect } from "react"; +import { useMusicState } from "./MusicState"; +import { useMusicEngine } from "./useMusicEngine"; +import { analyzeTrack } from "./influence/TrackAnalyzer"; +import { fuseMoods } from "../spaces/music/fuseMoods"; +import { applyInfluence } from "../../shell/themeEngine"; +import { useSpaceContext } from "../spaces/useSpaceContext"; +import { recordInfluence } from "./diagnostics/InfluenceDiagnostics"; +import { useNotifications } from "../../shell/notifications"; +import { useLeonardo } from "../../leonardo/useLeonardo"; + +/**
+
+MusicEngineService
+runs as a background system that ties together music, space mood, influence, crossfade duration, and leonardo
+mount inside ShellSystems (always mounted)
+*/ +export const MusicEngineService: React.FC = () => {
+const { current, status } = useMusicState((s) => ({ current: s.current, status: s.status }));
+const music = useMusicEngine("host");
+const { space } = useSpaceContext();
+const { push } = useNotifications();
+const leonardo = useLeonardo();
+// announce track changes ceremonially
+useEffect(() => {
+if (status === "playing" && current) {
+Code
+ push?.(`Now playing: ${current.title}`, "info");
+}
+}, [current, status, push]);
+// analyze track and compute fused mood
+const trackMood = current ? analyzeTrack(current.title).mood : null;
+const fusedMood = space && trackMood ? fuseMoods(space.mood, trackMood) : null;
+// apply influence (debounced by scheduler in influence module, but a best-effort apply here)
+useEffect(() => {
+if (!fusedMood) return;
+applyInfluence("music-engine", fusedMood);
+recordInfluence("music-engine", fusedMood);
+}, [fusedMood]);
+// sync leonardo mood
+useEffect(() => {
+if (!fusedMood) return;
+leonardo?.setMood?.(fusedMood);
+}, [fusedMood, leonardo]);
+// set crossfade duration based on space mood (exposed as a setting on music hook)
+useEffect(() => {
+if (!space) return;
+const duration = getCrossfadeDuration(space.mood);
+if (typeof music.setCrossfade === "function") {
+Code
+ (music as any).setCrossfade?.(duration);
+}
+}, [space, current, music]);
+return null; +};
++const getCrossfadeDuration = (mood: string) => {
+
+switch (mood) {
+case "calm":
+case "dreamy":
+Code
+ return 3.0;
+case "intense":
+case "chaotic":
+Code
+ return 0.8;
+default:
+Code
+ return 1.5;
+} +};
+*** End Patch *** Add File: electron/ipcChannels.ts +export const IPC_CHANNELS = {
+
+GFN_REQUEST: "gfn:request",
+GFN_RESPONSE: "gfn:response",
+DIAGNOSTICS: "diagnostics:request",
+DIAGNOSTICS_RESPONSE: "diagnostics:response",
+SYSTEM_INFO: "system:info",
+SYSTEM_INFO_RESPONSE: "system:info:response",
+MUSIC_EVENTS: "music:events",
+SPACE_EVENTS: "space:events", +} as const;
+*** End Patch *** Add File: electron/preload.ts +import { contextBridge, ipcRenderer } from "electron"; +import { IPC_CHANNELS } from "./ipcChannels"; + +declare global {
+
+interface Window {
+cloudhop?: {
+Code
+ gfnRequest?: (payload: any) => Promise<any>;
+Code
+ getSystemInfo?: () => Promise<any>;
+Code
+ onMusicEvent?: (cb: (e: any) => void) => void;
+Code
+ onSpaceEvent?: (cb: (e: any) => void) => void;
+};
+} +}
++contextBridge.exposeInMainWorld("cloudhop", {
+
+gfnRequest: (payload: any) => ipcRenderer.invoke(IPC_CHANNELS.GFN_REQUEST, payload),
+getSystemInfo: () => ipcRenderer.invoke(IPC_CHANNELS.SYSTEM_INFO),
+onMusicEvent: (callback: (data: any) => void) =>
+ipcRenderer.on(IPC_CHANNELS.MUSIC_EVENTS, (_, data) => callback(data)),
+onSpaceEvent: (callback: (data: any) => void) =>
+ipcRenderer.on(IPC_CHANNELS.SPACE_EVENTS, (_, data) => callback(data)), +});
+*** End Patch *** Add File: src/runtime/ElectronGfnClient.ts +import { AbstractGfnClient } from "./AbstractGfnClient"; + +/**
+
+ElectronGfnClient wraps the browser-exposed window.cloudhop bridge (preload)
+to implement the same abstract client interface used by the runtime.
+*/ +export class ElectronGfnClient extends AbstractGfnClient {
+async request(payload: any) {
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+if (typeof window?.cloudhop?.gfnRequest === "function") {
+Code
+ // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+Code
+ // @ts-ignore
+Code
+ return await window.cloudhop.gfnRequest(payload);
+}
+throw new Error("Electron cloudhop bridge not available");
+}
+async getSystemInfo() {
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+if (typeof window?.cloudhop?.getSystemInfo === "function") {
+Code
+ // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+Code
+ // @ts-ignore
+Code
+ return await window.cloudhop.getSystemInfo();
+}
+return null;
+}
+onMusicEvent(callback: (ev: any) => void) {
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+window?.cloudhop?.onMusicEvent?.(callback);
+}
+onSpaceEvent(callback: (ev: any) => void) {
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+window?.cloudhop?.onSpaceEvent?.(callback);
+} +}
+*** End Patch *** Add File: src/runtime/bootstrap.ts +import { WebGfnClient } from "./WebGfnClient"; +import { ElectronGfnClient } from "./ElectronGfnClient"; + +export const createRuntime = () => {
+
+const isElectron = typeof (window as any)?.cloudhop !== "undefined";
+const gfn = isElectron ? new ElectronGfnClient() : new WebGfnClient();
+return { gfn }; +};
+*** End Patch *** Add File: src/core/music/influence/MoodPalette.ts +/**
+
+MoodPalette & MoodColorEngine
+Provides a canonical palette for moods and a lerp utility to smooth transitions.
+*/
++export type Mood =
+
+| "calm"
+| "dreamy"
+| "intense"
+| "chaotic"
+| "ethereal"
+| "dark"
+| "neon"
+| "ambient";
++export type Color = {
+
+r: number;
+g: number;
+b: number; +};
++export type MoodPalette = {
+
+base: string;
+highlight: string;
+shadow: string;
+particle: string;
+nebulaGradient: [string, string];
+glyph: string;
+pulse: string; +};
++export const moodPalettes: Record<Mood, MoodPalette> = {
+
+calm: {
+base: "#A7C7E7",
+highlight: "#D9F1FF",
+shadow: "#5B7FA6",
+particle: "#BEE6FF",
+nebulaGradient: ["#E6F4FF", "#B3DDF2"],
+glyph: "#7BA6C8",
+pulse: "#88C2FF",
+},
+dreamy: {
+base: "#D7C6F8",
+highlight: "#F6EFFF",
+shadow: "#9B85C5",
+particle: "#EAD6FF",
+nebulaGradient: ["#F8F3FF", "#D4C3F6"],
+glyph: "#C59EF0",
+pulse: "#E5C8FF",
+},
+intense: {
+base: "#FF6B6B",
+highlight: "#FFB3A7",
+shadow: "#B33A3A",
+particle: "#FF8F7A",
+nebulaGradient: ["#FFEAEA", "#FFB3A7"],
+glyph: "#FF7A7A",
+pulse: "#FF4D4D",
+},
+chaotic: {
+base: "#FF4DF7",
+highlight: "#FFB3FF",
+shadow: "#B3458F",
+particle: "#FF7AFF",
+nebulaGradient: ["#FFD6FF", "#FF9CEC"],
+glyph: "#FF6BE1",
+pulse: "#FF3BFF",
+},
+ethereal: {
+base: "#E6FFF8",
+highlight: "#FFFFFF",
+shadow: "#9AE9D7",
+particle: "#DFFCF0",
+nebulaGradient: ["#F6FFFB", "#DFFCF0"],
+glyph: "#A7FFD9",
+pulse: "#CFFFEA",
+},
+dark: {
+base: "#1F1B24",
+highlight: "#3A3340",
+shadow: "#0F0D10",
+particle: "#6D6A73",
+nebulaGradient: ["#251E28", "#141116"],
+glyph: "#8F8A96",
+pulse: "#5C5660",
+},
+neon: {
+base: "#00E5FF",
+highlight: "#B3FFF8",
+shadow: "#008F9A",
+particle: "#66FFFB",
+nebulaGradient: ["#E0FFFF", "#00E5FF"],
+glyph: "#00F0FF",
+pulse: "#00D9FF",
+},
+ambient: {
+base: "#CFE8FF",
+highlight: "#FFFFFF",
+shadow: "#9BB7D8",
+particle: "#E7F7FF",
+nebulaGradient: ["#F6FDFF", "#CEF0FF"],
+glyph: "#8FBDE8",
+pulse: "#BFE8FF",
+}, +};
++function hexToRgb(hex: string): Color {
+
+const h = hex.replace("#", "");
+const bigint = parseInt(h.length === 3 ? h.split("").map((c) => c + c).join("") : h, 16);
+const r = (bigint >> 16) & 255;
+const g = (bigint >> 8) & 255;
+const b = bigint & 255;
+return { r, g, b }; +}
++function rgbToHex(c: Color) {
+
+const r = Math.round(c.r)
+.toString(16)
+.padStart(2, "0");
+const g = Math.round(c.g)
+.toString(16)
+.padStart(2, "0");
+const b = Math.round(c.b)
+.toString(16)
+.padStart(2, "0");
+return #${r}${g}${b}; +}
++export function lerpColor(a: string, b: string, t: number) {
+
+const ca = hexToRgb(a);
+const cb = hexToRgb(b);
+const out: Color = {
+r: ca.r + (cb.r - ca.r) * t,
+g: ca.g + (cb.g - ca.g) * t,
+b: ca.b + (cb.b - ca.b) * t,
+};
+return rgbToHex(out); +}
++/**
+
+getInterpolatedPalette
+returns a palette that is a blend between two mood palettes (t in 0..1)
+*/ +export function getInterpolatedPalette(from: Mood, to: Mood, t: number): MoodPalette {
+const a = moodPalettes[from];
+const b = moodPalettes[to];
+return {
+base: lerpColor(a.base, b.base, t),
+highlight: lerpColor(a.highlight, b.highlight, t),
+shadow: lerpColor(a.shadow, b.shadow, t),
+particle: lerpColor(a.particle, b.particle, t),
+nebulaGradient: [lerpColor(a.nebulaGradient[0], b.nebulaGradient[0], t), lerpColor(a.nebulaGradient[1], b.nebulaGradient[1], t)],
+glyph: lerpColor(a.glyph, b.glyph, t),
+pulse: lerpColor(a.pulse, b.pulse, t),
+}; +}
+*** End Patch *** Add File: src/core/spaces/music/fuseMoods.ts +/**
+
+fuseMoods - blends a space mood and track mood into a fused mood.
+This is the minimal table-based fusion used across the system.
+*/ +export const fuseMoods = (spaceMood: string, trackMood: string): string => {
+const table: Record<string, Record<string, string>> = {
+calm: { ambient: "ambient", neon: "dreamy", tactical: "intense", dark: "dark", dreamy: "dreamy" },
+dreamy: { ambient: "dreamy", neon: "neon", tactical: "intense", dark: "dark", dreamy: "dreamy" },
+intense: { ambient: "tactical", neon: "neon", tactical: "tactical", dark: "dark", dreamy: "ambient" },
+chaotic: { ambient: "neon", neon: "chaotic", tactical: "chaotic", dark: "dark", dreamy: "dreamy" },
+ethereal: { ambient: "ethereal", neon: "dreamy", tactical: "intense", dark: "dark", dreamy: "ethereal" },
+};
+const s = table[spaceMood];
+if (!s) return trackMood || spaceMood || "ambient";
+return s[trackMood] ?? trackMood ?? spaceMood ?? "ambient"; +};
+*** End Patch *** Add File: src/core/spectrum/SpectrumState.ts +// Shared Spectrum state and simple subscription API (singleton) +export type SpaceOrbit = {
+
+id: string;
+name?: string;
+mood: string;
+activity: number; // 0..1
+engagement: number; // 0..1
+energy: number; // 0..1 +};
++export type LeonardoState = {
+
+mood: string;
+confidence: number; // 0..1 +};
++export type SpectrumState = {
+
+mood: string;
+fusedMood: string;
+trackMood: string;
+spaceMood: string;
+bpm: number;
+energy: number;
+bass: number;
+mid: number;
+high: number;
+themeInfluence: string | null;
+spaces: SpaceOrbit[];
+leonardo: LeonardoState;
+time: number; +};
++const initial: SpectrumState = {
+
+mood: "calm",
+fusedMood: "calm",
+trackMood: "calm",
+spaceMood: "calm",
+bpm: 0,
+energy: 0,
+bass: 0,
+mid: 0,
+high: 0,
+themeInfluence: null,
+spaces: [],
+leonardo: { mood: "calm", confidence: 1.0 },
+time: 0, +};
++let state: SpectrumState = { ...initial }; + +type Subscriber = (s: SpectrumState) => void; +const subscribers = new Set<Subscriber>(); + +export const getSpectrumState = () => state; + +export const setSpectrumState = (patch: Partial<SpectrumState>) => {
+
+state = { ...state, ...patch };
+for (const cb of subscribers) cb(state); +};
++export const updateSpectrumState = (updater: (draft: SpectrumState) => void) => {
+
+const copy = { ...state, spaces: [...state.spaces], leonardo: { ...state.leonardo } };
+updater(copy);
+state = copy;
+for (const cb of subscribers) cb(state); +};
++export const subscribeSpectrum = (cb: Subscriber) => {
+
+subscribers.add(cb);
+// emit immediately
+cb(state);
+return () => subscribers.delete(cb); +};
++export const resetSpectrumState = () => {
+
+state = { ...initial };
+for (const cb of subscribers) cb(state); +};
+*** End Patch *** Add File: src/core/spectrum/AudioAnalyzer.ts +// Small WebAudio analyzer that extracts bass/mid/high, energy and a coarse BPM estimate. +// Usage: const a = new AudioAnalyzer(audioElement); a.start(); a.onUpdate = (data) => { ... } +export type AnalyzerData = {
+
+bass: number; // 0..1
+mid: number;
+high: number;
+energy: number; // overall RMS 0..1
+bpm: number; // coarse BPM estimate +};
++export class AudioAnalyzer {
+
+private ctx: AudioContext | null = null;
+private analyser: AnalyserNode | null = null;
+private source: MediaElementAudioSourceNode | null = null;
+private raf = 0;
+private dataArray: Uint8Array | null = null;
+private lastPeaks: number[] = [];
+private onUpdateCb: ((d: AnalyzerData) => void) | null = null;
+private mounted = false;
+constructor(private audioEl?: HTMLMediaElement) {}
+async init() {
+if (!this.audioEl) return;
+if (!this.ctx) {
+Code
+ this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+}
+if (!this.analyser && this.ctx) {
+Code
+ this.analyser = this.ctx.createAnalyser();
+Code
+ this.analyser.fftSize = 2048;
+Code
+ this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+}
+if (this.ctx && this.audioEl && !this.source) {
+Code
+ this.source = this.ctx.createMediaElementSource(this.audioEl);
+Code
+ this.source.connect(this.analyser!);
+Code
+ this.analyser!.connect(this.ctx.destination);
+}
+}
+start = async () => {
+if (!this.audioEl) return;
+await this.init();
+if (this.ctx && this.ctx.state === "suspended") {
+Code
+ try {
+Code
+   await this.ctx.resume();
+Code
+ } catch {}
+}
+this.mounted = true;
+this.loop();
+};
+stop = () => {
+this.mounted = false;
+if (this.raf) cancelAnimationFrame(this.raf);
+};
+onUpdate(setter: (d: AnalyzerData) => void) {
+this.onUpdateCb = setter;
+}
+private loop = () => {
+if (!this.analyser || !this.dataArray) {
+Code
+ if (this.mounted) this.raf = requestAnimationFrame(this.loop);
+Code
+ return;
+}
+this.analyser.getByteFrequencyData(this.dataArray);
+// frequency bins -> estimate bands
+const bins = Array.from(this.dataArray);
+const binCount = bins.length;
+const freqForIndex = (i: number) => (i * (this.ctx!.sampleRate / 2)) / binCount;
+// sum energy in ranges
+let bassSum = 0,
+Code
+ midSum = 0,
+Code
+ highSum = 0,
+Code
+ total = 0;
+for (let i = 0; i < binCount; i++) {
+Code
+ const f = freqForIndex(i);
+Code
+ const v = bins[i] / 255;
+Code
+ total += v;
+Code
+ if (f < 250) bassSum += v;
+Code
+ else if (f < 4000) midSum += v;
+Code
+ else highSum += v;
+}
+const bass = Math.min(1, bassSum / (binCount * 0.02));
+const mid = Math.min(1, midSum / (binCount * 0.15));
+const high = Math.min(1, highSum / (binCount * 0.8));
+const energy = Math.min(1, total / binCount);
+// crude beat detection: energy peak detection
+const now = performance.now();
+const instantEnergy = total / binCount;
+if (instantEnergy > 0.45 && (this.lastPeaks.length === 0 || now - this.lastPeaks[this.lastPeaks.length - 1] > 200)) {
+Code
+ this.lastPeaks.push(now);
+Code
+ if (this.lastPeaks.length > 8) this.lastPeaks.shift();
+}
+// estimate bpm from peak intervals
+let bpm = 0;
+if (this.lastPeaks.length >= 2) {
+Code
+ const intervals: number[] = [];
+Code
+ for (let i = 1; i < this.lastPeaks.length; i++) intervals.push(this.lastPeaks[i] - this.lastPeaks[i - 1]);
+Code
+ const avg = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+Code
+ if (avg > 0) bpm = Math.round(60000 / avg);
+Code
+ if (bpm < 50) bpm = bpm * 2;
+Code
+ if (bpm > 220) bpm = 120;
+}
+const d: AnalyzerData = { bass, mid, high, energy, bpm };
+if (this.onUpdateCb) this.onUpdateCb(d);
+if (this.mounted) this.raf = requestAnimationFrame(this.loop);
+}; +}
+*** End Patch *** Add File: src/core/spectrum/SpectrumRuntime.tsx +import React, { useEffect, useRef } from "react"; +import { subscribeSpectrum, updateSpectrumState, getSpectrumState } from "./SpectrumState"; +import { AudioAnalyzer } from "./AudioAnalyzer"; + +// NOTE: these imports assume your app provides these hooks. Adapt paths if different. +import { useMusicState } from "../music/MusicState"; +import { useSpaceContext } from "../spaces/useSpaceContext"; +import { useThemeEngine } from "../../shell/themeEngine"; +import { useLeonardo } from "../../leonardo/useLeonardo"; + +/**
+
+SpectrumRuntime mounts once (ShellSystems) and wires OS subsystems into the SpectrumState.
+It also starts an AudioAnalyzer bound to the current audio element (via MusicEngineProvider transport).
+*/ +export const SpectrumRuntime: React.FC = () => {
+const music = useMusicState((s) => ({ current: s.current, status: s.status, volume: s.volume }));
+const { space } = useSpaceContext();
+const theme = useThemeEngine();
+const leonardo = useLeonardo?.();
+const analyzerRef = useRef<AudioAnalyzer | null>(null);
+const analyzerStarted = useRef(false);
+useEffect(() => {
+const unsub = subscribeSpectrum((s) => {});
+return unsub;
+}, []);
+// start audio analyzer if there is an audio element on the page.
+useEffect(() => {
+if (analyzerStarted.current) return;
+const audioEl = document.querySelector("audio") as HTMLMediaElement | null;
+if (!audioEl) return;
+const analyzer = new AudioAnalyzer(audioEl);
+analyzerRef.current = analyzer;
+analyzer.onUpdate((d) => {
+Code
+ updateSpectrumState({
+Code
+   bass: d.bass,
+Code
+   mid: d.mid,
+Code
+   high: d.high,
+Code
+   energy: d.energy,
+Code
+   bpm: d.bpm,
+Code
+ });
+});
+analyzer.start();
+analyzerStarted.current = true;
+return () => analyzer.stop();
+}, [music.current]);
+// Wire music track / status -> trackMood, announce fused mood
+useEffect(() => {
+if (music.current && music.status === "playing") {
+Code
+ const title = music.current.title ?? "";
+Code
+ const lower = title.toLowerCase();
+Code
+ let trackMood = "ambient";
+Code
+ if (lower.includes("remix") || lower.includes("mix")) trackMood = "neon";
+Code
+ if (lower.includes("lofi") || lower.includes("chill")) trackMood = "ambient";
+Code
+ if (lower.includes("epic") || lower.includes("cinematic")) trackMood = "intense";
+Code
+ if (lower.includes("dark") || lower.includes("slow")) trackMood = "dark";
+Code
+ updateSpectrumState({ trackMood });
+Code
+ const fused = fuseMoods((space && space.mood) || getSpectrumState().spaceMood, trackMood);
+Code
+ updateSpectrumState({ fusedMood: fused });
+}
+}, [music.current, music.status, space]);
+// Space updates -> update spaces list
+useEffect(() => {
+if (!space) {
+Code
+ updateSpectrumState({ spaces: [] });
+Code
+ return;
+}
+updateSpectrumState({
+Code
+ spaceMood: space.mood,
+Code
+ spaces: [
+Code
+   {
+Code
+     id: space.id ?? "space-1",
+Code
+     name: space.name,
+Code
+     mood: space.mood,
+Code
+     activity: space.activity ?? 0,
+Code
+     engagement: space.engagement ?? 0,
+Code
+     energy: space.soundtrack?.energy ?? 0,
+Code
+   },
+Code
+ ],
+});
+}, [space]);
+// Theme / Leonardo updates
+useEffect(() => {
+if (theme && theme.lastInfluence) {
+Code
+ updateSpectrumState({ themeInfluence: theme.lastInfluence });
+}
+}, [theme?.lastInfluence]);
+useEffect(() => {
+if (!leonardo) return;
+const handle = (m: any) => updateSpectrumState({ leonardo: { mood: m, confidence: 1.0 } });
+if (typeof leonardo.onMood === "function") leonardo.onMood(handle);
+return () => {};
+}, [leonardo]);
+// animation clock
+useEffect(() => {
+let raf = 0;
+let last = performance.now();
+const frame = (t: number) => {
+Code
+ const dt = (t - last) / 1000;
+Code
+ last = t;
+Code
+ updateSpectrumState((draft) => {
+Code
+   draft.time += dt;
+Code
+   if (draft.mood !== draft.fusedMood) {
+Code
+     draft.mood = draft.fusedMood;
+Code
+   }
+Code
+ });
+Code
+ raf = requestAnimationFrame(frame);
+};
+raf = requestAnimationFrame(frame);
+return () => cancelAnimationFrame(raf);
+}, []);
+return null; +};
++// Small local fuse fallback (if your fuseMoods is elsewhere replace import) +function fuseMoods(spaceMood: string, trackMood: string) {
+
+const table: Record<string, Record<string, string>> = {
+calm: { ambient: "ambient", neon: "dreamy", tactical: "intense", dark: "dark", dreamy: "dreamy" },
+dreamy: { ambient: "dreamy", neon: "neon", tactical: "intense", dark: "dark", dreamy: "dreamy" },
+intense: { ambient: "tactical", neon: "neon", tactical: "tactical", dark: "dark", dreamy: "ambient" },
+chaotic: { ambient: "neon", neon: "chaotic", tactical: "chaotic", dark: "dark", dreamy: "dreamy" },
+ethereal: { ambient: "ethereal", neon: "dreamy", tactical: "intense", dark: "dark", dreamy: "ethereal" },
+};
+const s = table[spaceMood];
+if (!s) return trackMood || spaceMood || "ambient";
+return s[trackMood] ?? trackMood ?? spaceMood ?? "ambient"; +}
+*** End Patch *** Add File: src/components/spectrum/Shaders.ts +// Shared shader strings used by Nebula, Particles and Glyph. +// Keep them minimal and readable — they can be extended later. + +export const NebulaVertex = `#version 300 es +in vec3 position; +void main() {
+
+gl_Position = vec4(position, 1.0); +} +`;
++// Simple perlin-ish hash/noise functions (suitable for prototyping) +export const NebulaFragment = `#version 300 es +precision highp float; +out vec4 outColor; + +uniform float uTime; +uniform float uEnergy; +uniform vec3 uBaseColor; +uniform vec3 uHighlightColor; +uniform vec3 uShadowColor; +uniform float uMoodIntensity; + +// simple 2D hash + noise +float hash(vec2 p) {
+
+return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); +} +float noise(vec2 p) {
+vec2 i = floor(p);
+vec2 f = fract(p);
+float a = hash(i);
+float b = hash(i + vec2(1.0, 0.0));
+float c = hash(i + vec2(0.0, 1.0));
+float d = hash(i + vec2(1.0, 1.0));
+vec2 u = ff(3.0-2.0*f);
+return mix(a, b, u.x) + (c - a)u.y(1.0 - u.x) + (d - b)u.xu.y; +}
++void main() {
+
+vec2 uv = gl_FragCoord.xy / vec2(1024.0, 576.0);
+float t = uTime * 0.02;
+float n1 = noise(uv * 1.5 + t);
+float n2 = noise(uv * 0.8 - t * 0.5);
+float n = mix(n1, n2, 0.5);
+vec3 color = mix(uShadowColor, uBaseColor, n);
+color = mix(color, uHighlightColor, n * n);
+float pulse = uEnergy * 0.15 * sin(uTime * 3.0);
+color += pulse;
+color = clamp(color, 0.0, 1.0);
+outColor = vec4(color, 1.0); +} +`;
++// Particle shaders (vertex + fragment) +export const ParticleVertex = `#version 300 es +in vec3 position; +in vec2 uv; +in vec3 offset; +uniform float uTime; +uniform float uBass; +uniform float uMid; +uniform float uHigh; +uniform float uBPM; +uniform float uEnergy; +uniform mat4 projectionMatrix; +uniform mat4 modelViewMatrix; + +out vec2 vUv; +out float vLife; + +void main() {
+
+vUv = uv;
+vec3 pos = offset;
+pos.x += sin(uTime * (0.1 + uMid * 2.0) + offset.x * 3.0) * 0.2 * uEnergy;
+pos.y += cos(uTime * (0.08 + uBass * 2.5) + offset.y * 2.0) * 0.15 * uEnergy;
+float scale = 0.02 + uBass * 0.08 + uHigh * 0.03;
+vec4 mvPosition = modelViewMatrix * vec4(pos + position * scale, 1.0);
+gl_Position = projectionMatrix * mvPosition;
+vLife = fract(offset.x + offset.y + uTime * 0.1); +} +`;
++export const ParticleFragment = `#version 300 es +precision highp float; +in vec2 vUv; +in float vLife; +out vec4 outColor; +uniform vec3 uParticleColor; +uniform float uEnergy; + +void main() {
+
+float d = length(vUv - 0.5);
+float alpha = smoothstep(0.5, 0.0, d) * (0.4 + uEnergy * 0.6);
+vec3 col = uParticleColor * (0.6 + uEnergy * 0.6);
+outColor = vec4(col, alpha); +} +`;
++// Leonardo glyph simple placeholder shader (SDFs / morphing can be added) +export const GlyphVertex = `#version 300 es +in vec3 position; +in vec2 uv; +uniform mat4 projectionMatrix; +uniform mat4 modelViewMatrix; +out vec2 vUv; +void main() {
+
+vUv = uv;
+gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); +} +`;
++export const GlyphFragment = `#version 300 es +precision highp float; +in vec2 vUv; +out vec4 outColor; +uniform float uTime; +uniform float uMood; +uniform float uConfidence; +uniform float uEnergy; +uniform vec3 uColor; + +void main() {
+
+vec2 p = vUv - 0.5;
+float d = length(p);
+float alpha = smoothstep(0.5, 0.18, d);
+float pulse = 0.03 * sin(uTime * (1.0 + uEnergy * 4.0) * (1.0 + uMood));
+float finalAlpha = clamp(alpha + pulse * uConfidence, 0.0, 1.0);
+outColor = vec4(uColor, finalAlpha); +} +`;
+*** End Patch *** Add File: src/components/spectrum/SpectrumCanvas.tsx +import React, { Suspense } from "react"; +import { Canvas } from "@react-three/fiber"; +import { Nebula } from "./Nebula"; +import { Particles } from "./Particles"; +import { SpaceOrbits } from "./SpaceOrbits"; +import { LeonardoGlyph } from "./LeonardoGlyph"; + +/**
+
+SpectrumCanvas
+Top-level r3f canvas that layers the Nebula, Particles, Orbits and Glyph.
+Mount this in a dedicated fullscreen container (position:fixed).
+*/ +export const SpectrumCanvas: React.FC<{ style?: React.CSSProperties }> = ({ style }) => {
+return (
+<div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 9998, ...style }}>
+Code
+ <Canvas orthographic camera={{ zoom: 1, position: [0, 0, 5] }}>
+Code
+   <Suspense fallback={null}>
+Code
+     <Nebula />
+Code
+     <Particles count={2000} />
+Code
+     <SpaceOrbits />
+Code
+     <LeonardoGlyph />
+Code
+   </Suspense>
+Code
+ </Canvas>
+</div>
+); +};
+*** End Patch *** Add File: src/components/spectrum/Nebula.tsx +import React, { useMemo } from "react"; +import { useFrame, useThree } from "@react-three/fiber"; +import * as THREE from "three"; +import { NebulaVertex, NebulaFragment } from "./Shaders"; +import { getSpectrumState, subscribeSpectrum } from "../../core/spectrum/SpectrumState"; +import { moodPalettes } from "../../core/music/influence/MoodPalette"; + +/**
+
+Nebula layer — fullscreen quad with shader.
+*/ +export const Nebula: React.FC = () => {
+const { gl, size } = useThree();
+const material = useMemo(() => {
+const mat = new THREE.ShaderMaterial({
+Code
+ vertexShader: NebulaVertex,
+Code
+ fragmentShader: NebulaFragment,
+Code
+ uniforms: {
+Code
+   uTime: { value: 0 },
+Code
+   uEnergy: { value: 0 },
+Code
+   uBaseColor: { value: new THREE.Color("#000000") },
+Code
+   uHighlightColor: { value: new THREE.Color("#000000") },
+Code
+   uShadowColor: { value: new THREE.Color("#000000") },
+Code
+   uMoodIntensity: { value: 1.0 },
+Code
+ },
+Code
+ depthWrite: false,
+Code
+ depthTest: false,
+Code
+ transparent: false,
+});
+return mat;
+}, []);
+React.useEffect(() => {
+const onResize = () => {
+Code
+ gl.setSize(size.width, size.height);
+};
+onResize();
+}, [gl, size]);
+useFrame((state) => {
+material.uniforms.uTime.value = getSpectrumState().time;
+material.uniforms.uEnergy.value = getSpectrumState().energy;
+});
+React.useEffect(() => {
+const unsub = subscribeSpectrum((s) => {
+Code
+ const palette = moodPalettes[s.fusedMood as any] || moodPalettes["ambient"];
+Code
+ material.uniforms.uBaseColor.value.set(palette.base);
+Code
+ material.uniforms.uHighlightColor.value.set(palette.highlight);
+Code
+ material.uniforms.uShadowColor.value.set(palette.shadow);
+Code
+ material.uniforms.uMoodIntensity.value = 1.0;
+});
+return unsub;
+}, [material]);
+return (
+<mesh frustumCulled={false}>
+Code
+ <planeGeometry args={[2, 2]} />
+Code
+ <primitive object={material} attach="material" />
+</mesh>
+); +};
+*** End Patch *** Add File: src/components/spectrum/Particles.tsx +import React, { useMemo } from "react"; +import * as THREE from "three"; +import { useFrame } from "@react-three/fiber"; +import { ParticleVertex, ParticleFragment } from "./Shaders"; +import { getSpectrumState, subscribeSpectrum } from "../../core/spectrum/SpectrumState"; +import { moodPalettes } from "../../core/music/influence/MoodPalette"; + +export const Particles: React.FC<{ count?: number }> = ({ count = 2000 }) => {
+
+const instRef = React.useRef<THREE.InstancedMesh | null>(null);
+const material = useMemo(() => {
+return new THREE.ShaderMaterial({
+Code
+ vertexShader: ParticleVertex,
+Code
+ fragmentShader: ParticleFragment,
+Code
+ uniforms: {
+Code
+   uTime: { value: 0 },
+Code
+   uBass: { value: 0 },
+Code
+   uMid: { value: 0 },
+Code
+   uHigh: { value: 0 },
+Code
+   uBPM: { value: 0 },
+Code
+   uEnergy: { value: 0 },
+Code
+   uParticleColor: { value: new THREE.Color("#ffffff") },
+Code
+ },
+Code
+ transparent: true,
+Code
+ depthWrite: false,
+Code
+ blending: THREE.AdditiveBlending,
+});
+}, []);
+const geometry = useMemo(() => {
+const base = new THREE.PlaneGeometry(0.02, 0.02);
+const instGeo = new THREE.InstancedBufferGeometry();
+instGeo.index = base.index;
+instGeo.setAttribute("position", base.attributes.position);
+instGeo.setAttribute("uv", base.attributes.uv);
+const offsets = new Float32Array(count * 3);
+for (let i = 0; i < count; i++) {
+Code
+ offsets[i * 3 + 0] = (Math.random() - 0.5) * 3.0;
+Code
+ offsets[i * 3 + 1] = (Math.random() - 0.5) * 2.0;
+Code
+ offsets[i * 3 + 2] = (Math.random() - 0.5) * 0.1;
+}
+instGeo.setAttribute("offset", new THREE.InstancedBufferAttribute(offsets, 3));
+return instGeo;
+}, [count]);
+useFrame(() => {
+const s = getSpectrumState();
+material.uniforms.uTime.value = s.time;
+material.uniforms.uBass.value = s.bass;
+material.uniforms.uMid.value = s.mid;
+material.uniforms.uHigh.value = s.high;
+material.uniforms.uBPM.value = s.bpm;
+material.uniforms.uEnergy.value = s.energy;
+const palette = moodPalettes[s.fusedMood as any] || moodPalettes["ambient"];
+material.uniforms.uParticleColor.value.set(palette.particle);
+});
+React.useEffect(() => {
+const unsub = subscribeSpectrum((s) => {
+});
+return unsub;
+}, []);
+return <instancedMesh ref={instRef} args={[undefined as any, undefined as any, count]} geometry={geometry} material={material} />; +};
+*** End Patch *** Add File: src/components/spectrum/SpaceOrbits.tsx +import React, { useMemo } from "react"; +import * as THREE from "three"; +import { useFrame } from "@react-three/fiber"; +import { getSpectrumState, subscribeSpectrum } from "../../core/spectrum/SpectrumState"; +import { moodPalettes } from "../../core/music/influence/MoodPalette"; + +/**
+
+SpaceOrbits renders simple sphere meshes for each space and animates orbits.
+It reads the spaces array from SpectrumState.
+*/ +export const SpaceOrbits: React.FC = () => {
+const groupRef = React.useRef<THREE.Group | null>(null);
+const orbitsRef = React.useRef<Map<string, { mesh: THREE.Mesh; angle: number; radius: number; speed: number }>>(new Map());
+useMemo(() => {
+}, []);
+useFrame((_, dt) => {
+const s = getSpectrumState();
+const activeIds = new Set(s.spaces.map((sp) => sp.id));
+for (const sp of s.spaces) {
+Code
+ if (!orbitsRef.current.has(sp.id)) {
+Code
+   const geom = new THREE.SphereGeometry(0.055, 16, 16);
+Code
+   const mat = new THREE.MeshBasicMaterial({ color: moodPalettes[sp.mood as any]?.base || "#fff", transparent: true, opacity: 0.85 });
+Code
+   const mesh = new THREE.Mesh(geom, mat);
+Code
+   if (groupRef.current) groupRef.current.add(mesh);
+Code
+   orbitsRef.current.set(sp.id, {
+Code
+     mesh,
+Code
+     angle: Math.random() * Math.PI * 2,
+Code
+     radius: 0.4 + sp.activity * 0.5,
+Code
+     speed: 0.2 + sp.engagement * 0.6,
+Code
+   });
+Code
+ }
+}
+for (const id of Array.from(orbitsRef.current.keys())) {
+Code
+ if (!activeIds.has(id)) {
+Code
+   const item = orbitsRef.current.get(id)!;
+Code
+   if (groupRef.current) groupRef.current.remove(item.mesh);
+Code
+   orbitsRef.current.delete(id);
+Code
+ }
+}
+for (const sp of s.spaces) {
+Code
+ const o = orbitsRef.current.get(sp.id)!;
+Code
+ if (!o) continue;
+Code
+ o.angle += o.speed * dt;
+Code
+ const x = Math.cos(o.angle) * o.radius;
+Code
+ const y = Math.sin(o.angle) * o.radius;
+Code
+ o.mesh.position.set(x, y, 0.1);
+Code
+ const palette = moodPalettes[sp.mood as any] || moodPalettes["ambient"];
+Code
+ (o.mesh.material as THREE.MeshBasicMaterial).color.set(palette.base);
+Code
+ (o.mesh.material as THREE.MeshBasicMaterial).opacity = 0.3 + sp.energy * 0.7;
+Code
+ o.mesh.position.z = Math.sin(o.angle * 3.0) * 0.02;
+Code
+ o.mesh.scale.setScalar(1.0 + sp.energy * 0.6);
+}
+});
+React.useEffect(() => {
+const unsub = subscribeSpectrum(() => {});
+return unsub;
+}, []);
+return <group ref={groupRef} />; +};
+*** End Patch *** Add File: src/components/spectrum/LeonardoGlyph.tsx +import React from "react"; +import * as THREE from "three"; +import { useFrame } from "@react-three/fiber"; +import { GlyphVertex, GlyphFragment } from "./Shaders"; +import { getSpectrumState, subscribeSpectrum } from "../../core/spectrum/SpectrumState"; +import { moodPalettes } from "../../core/music/influence/MoodPalette"; + +/**
+
+LeonardoGlyph: simple procedural glyph plane. SDF-based morphing can be added later.
+*/ +export const LeonardoGlyph: React.FC = () => {
+const meshRef = React.useRef<THREE.Mesh | null>(null);
+const material = React.useMemo(() => {
+return new THREE.ShaderMaterial({
+Code
+ vertexShader: GlyphVertex,
+Code
+ fragmentShader: GlyphFragment,
+Code
+ uniforms: {
+Code
+   uTime: { value: 0 },
+Code
+   uMood: { value: 0 },
+Code
+   uConfidence: { value: 1.0 },
+Code
+   uEnergy: { value: 0 },
+Code
+   uColor: { value: new THREE.Color("#ffffff") },
+Code
+ },
+Code
+ transparent: true,
+});
+}, []);
+useFrame(() => {
+const s = getSpectrumState();
+material.uniforms.uTime.value = s.time;
+material.uniforms.uEnergy.value = s.energy;
+material.uniforms.uConfidence.value = s.leonardo.confidence;
+const palette = moodPalettes[s.fusedMood as any] || moodPalettes["ambient"];
+material.uniforms.uColor.value.set(palette.glyph);
+const moods = ["calm", "dreamy", "intense", "chaotic", "ethereal", "dark", "neon", "ambient"];
+material.uniforms.uMood.value = moods.indexOf(s.leonardo.mood) !== -1 ? moods.indexOf(s.leonardo.mood) : 0;
+});
+React.useEffect(() => {
+const unsub = subscribeSpectrum(() => {});
+return unsub;
+}, []);
+return (
+<mesh ref={meshRef} position={[0, 0, 0.2]}>
+Code
+ <planeGeometry args={[0.9, 0.9]} />
+Code
+ <primitive object={material} attach="material" />
+</mesh>
+); +};
+*** End Patch *** End Patch ----- END PATCH ----- PATCH
