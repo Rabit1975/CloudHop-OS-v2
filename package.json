@@ -29,5 +29,10 @@
   "peerDependencies": {
     "react": "^18.0.0",
     "electron": "^28.0.0"
+  },
+  "dependencies": {
+    "@react-three/fiber": "^8.15.0",
+    "three": "^0.160.0",
+    "@types/three": "^0.160.0"
   }
 }
