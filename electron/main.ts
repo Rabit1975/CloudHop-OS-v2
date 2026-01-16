@@ -1,35 +1,69 @@
-import { app, BrowserWindow } from 'electron'
-import path from 'path'
+import { app, BrowserWindow, ipcMain } from 'electron';
+import * as path from 'path';
 
-const createWindow = () => {
-  const win = new BrowserWindow({
+let mainWindow: BrowserWindow | null = null;
+
+// GPU + performance flags
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('enable-features', 'Metal'); // macOS
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+
+const isDev = !app.isPackaged;
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
-    backgroundColor: '#000000',
-    autoHideMenuBar: true,
+    minWidth: 1024,
+    minHeight: 640,
+    backgroundColor: '#00000000',
+    transparent: true,
+    frame: false,
+    titleBarStyle: 'hiddenInset',
+    vibrancy: 'under-window', // macOS only, safe to ignore elsewhere
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      sandbox: true,
       nodeIntegration: false,
-      contextIsolation: true
-    }
-  })
+      devTools: isDev,
+    },
+  });
 
-  // Load your dev server or production build
-  if (process.env.VITE_DEV_SERVER_URL) {
-    win.loadURL(process.env.VITE_DEV_SERVER_URL)
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173'); // or your dev URL
+    mainWindow.webContents.openDevTools();
   } else {
-    win.loadFile(path.join(__dirname, '../dist/index.html'))
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
 }
 
 app.whenReady().then(() => {
-  createWindow()
+  createWindow();
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
-})
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
-})
+  if (process.platform !== 'darwin') app.quit();
+});
+
+// Example: window control IPC
+ipcMain.handle('window:minimize', () => {
+  mainWindow?.minimize();
+});
+ipcMain.handle('window:maximize', () => {
+  if (!mainWindow) return;
+  if (mainWindow.isMaximized()) mainWindow.unmaximize();
+  else mainWindow.maximize();
+});
+ipcMain.handle('window:close', () => {
+  mainWindow?.close();
+});
