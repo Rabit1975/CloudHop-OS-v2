@@ -17,6 +17,9 @@
   "author": "CloudHop Team",
   "license": "UNLICENSED",
   "private": true,
+  "dependencies": {
+    "zustand": "^4.4.0"
+  },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/react": "^18.0.0",
