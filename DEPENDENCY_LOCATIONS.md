@@ -6,7 +6,7 @@ This document provides a comprehensive overview of where `@supabase/supabase-js`
 
 ### Package Information
 - **Expected Version**: ^2.38.0 (as documented in STRUCTURE.md)
-- **Status**: ⚠️ **NOT INSTALLED** - Package is missing from package.json dependencies
+- **Status**: ✅ **NOW ADDED** - Added to package.json dependencies
 - **Purpose**: Backend and realtime database client
 
 ### Files Using @supabase/supabase-js
@@ -50,7 +50,7 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 
 ### Package Information
 - **Expected Version**: ^6.20.0 (as documented in STRUCTURE.md)
-- **Status**: ⚠️ **NOT INSTALLED** - Package is missing from package.json dependencies
+- **Status**: ✅ **NOW ADDED** - Added to package.json dependencies
 - **Purpose**: Client-side routing for the React application
 
 ### Files Using react-router-dom
@@ -106,42 +106,43 @@ export function Router() {
 
 ## Summary
 
-### Critical Issue: Missing Dependencies
+### ✅ Dependencies Added
 
-Both `@supabase/supabase-js` and `react-router-dom` are **missing from the `package.json` dependencies** but are actively imported and used in the codebase.
+Both `@supabase/supabase-js` and `react-router-dom` have been **added to the `package.json` dependencies**.
 
-**Current package.json dependencies:**
+**Updated package.json dependencies:**
 ```json
 {
   "dependencies": {
     "@react-three/fiber": "^8.15.0",
-    "@types/three": "^0.160.0",
-    "three": "^0.160.0"
-  }
-}
-```
-
-### Required Action
-
-To fix the missing dependencies, run:
-
-```bash
-npm install @supabase/supabase-js@^2.38.0 react-router-dom@^6.20.0
-```
-
-Or add them manually to package.json:
-
-```json
-{
-  "dependencies": {
-    "@react-three/fiber": "^8.15.0",
-    "@types/three": "^0.160.0",
     "@supabase/supabase-js": "^2.38.0",
+    "@types/three": "^0.160.0",
     "react-router-dom": "^6.20.0",
     "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^7.8.3",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-router-dom": "^5.3.3",
+    "electron": "^40.0.0",
+    "typescript": "^5.0.0"
   }
 }
 ```
+
+### Next Steps
+
+To install the newly added dependencies, run:
+
+```bash
+npm install
+```
+
+This will install:
+- `@supabase/supabase-js@^2.38.0`
+- `react-router-dom@^6.20.0`
+- `@types/react-router-dom@^5.3.3` (dev dependency for TypeScript support)
 
 ### Files Affected
 
