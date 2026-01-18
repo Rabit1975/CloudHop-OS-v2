@@ -4,12 +4,12 @@
   "description": "CloudHop 2.0 - A modular operating system for next-generation communication",
   "main": "dist-electron/main.js",
   "scripts": {
-    "start": "concurrently \"npm run dev\" \"npm run electron:start\"",
-    "dev": "vite",
-    "build": "tsc && tsc -p tsconfig.electron.json && vite build",
-    "electron:build": "tsc -p tsconfig.electron.json",
-    "electron:start": "npm run electron:build && electron .",
-    "type-check": "tsc --noEmit"
+  "start": "concurrently \"npm run dev\" \"npm run electron:start\"",
+  "dev": "vite --host 127.0.0.1",
+  "build": "tsc && tsc -p tsconfig.electron.json && vite build",
+  "electron:build": "tsc -p tsconfig.electron.json",
+  "electron:start": "npm run electron:build && electron .",
+  "type-check": "tsc --noEmit"
   },
   "keywords": [
     "cloudhop",
@@ -39,3 +39,4 @@
     "vite": "^7.3.1"
   }
 }
+
