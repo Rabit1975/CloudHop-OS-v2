@@ -36,23 +36,34 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const electron_1 = require("electron");
 const path = __importStar(require("path"));
 let mainWindow = null;
-// GPU + performance flags
+// --- GPU FALLBACK (fixes invisible window) ---
 electron_1.app.commandLine.appendSwitch('disable-gpu');
 electron_1.app.commandLine.appendSwitch('disable-gpu-compositing');
-electron_1.app.commandLine.appendSwitch('disable-renderer-backgrounding');
+// --- RETRY LOADER (fixes ERR_CONNECTION_REFUSED) ---
+async function loadWithRetry(win, url, retries = 20, delay = 300) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            await win.loadURL(url);
+            return;
+        }
+        catch (err) {
+            console.log(`Retry ${i + 1}/${retries} failed...`);
+            await new Promise(res => setTimeout(res, delay));
+        }
+    }
+    console.error("Failed to load URL after retries");
+}
 const isDev = !electron_1.app.isPackaged;
 function createWindow() {
     mainWindow = new electron_1.BrowserWindow({
-        width: 1200,
+        width: 1280,
         height: 800,
-        minWidth: 800,
-        minHeight: 600,
-        show: false,
-        backgroundColor: '#00000000',
-        transparent: true,
-        frame: false,
+        minWidth: 1024,
+        minHeight: 640,
+        backgroundColor: '#1e1e1e',
+        transparent: false,
+        frame: true,
         titleBarStyle: 'hiddenInset',
-        vibrancy: 'under-window', // macOS only, safe to ignore elsewhere
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
@@ -61,24 +72,10 @@ function createWindow() {
             devTools: isDev,
         },
     });
-    // Force center and show when ready
-    mainWindow.center();
-    mainWindow.once('ready-to-show', () => {
-        mainWindow?.show();
-        mainWindow?.focus();
-    });
-    mainWindow.webContents.on('did-fail-load', () => {
-        mainWindow?.loadURL('data:text/html,<h1>CloudHop is starting...</h1>');
-        mainWindow?.show();
-    });
     if (isDev) {
-        // Load Vite dev server
-        setTimeout(() => {
-            mainWindow?.loadURL('http://127.0.0.1:5173');
-        }, 800);
+        loadWithRetry(mainWindow, 'http://127.0.0.1:5173');
     }
     else {
-        // Load built production files
         mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
     }
     mainWindow.on('closed', () => {
@@ -96,18 +93,11 @@ electron_1.app.on('window-all-closed', () => {
     if (process.platform !== 'darwin')
         electron_1.app.quit();
 });
-// Example: window control IPC
-electron_1.ipcMain.handle('window:minimize', () => {
-    mainWindow?.minimize();
-});
+// IPC
+electron_1.ipcMain.handle('window:minimize', () => mainWindow?.minimize());
 electron_1.ipcMain.handle('window:maximize', () => {
     if (!mainWindow)
         return;
-    if (mainWindow.isMaximized())
-        mainWindow.unmaximize();
-    else
-        mainWindow.maximize();
+    mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
 });
-electron_1.ipcMain.handle('window:close', () => {
-    mainWindow?.close();
-});
+electron_1.ipcMain.handle('window:close', () => mainWindow?.close());
