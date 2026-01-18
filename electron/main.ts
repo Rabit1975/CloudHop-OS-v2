@@ -13,10 +13,11 @@ const isDev = !app.isPackaged;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1280,
+    width: 1200,
     height: 800,
-    minWidth: 1024,
-    minHeight: 640,
+    minWidth: 800,
+    minHeight: 600,
+    show: false,
     backgroundColor: '#00000000',
     transparent: true,
     frame: false,
@@ -31,10 +32,26 @@ function createWindow() {
     },
   });
 
+  // Force center and show when ready
+  mainWindow.center();
+  
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show();
+    mainWindow?.focus();
+  });
+
+  mainWindow.webContents.on('did-fail-load', () => {
+    mainWindow?.loadURL('data:text/html,<h1>CloudHop is starting...</h1>');
+    mainWindow?.show();
+  });
+
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173'); // or your dev URL
-    mainWindow.webContents.openDevTools();
+    // Load Vite dev server
+    setTimeout(() => {
+      mainWindow?.loadURL('http://127.0.0.1:5173');
+    }, 800);
   } else {
+    // Load built production files
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
