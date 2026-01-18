@@ -36,14 +36,29 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      sandbox: true,
+      sandbox: false, // Disabled for debugging/compatibility
       nodeIntegration: false,
       devTools: isDev,
     },
   });
 
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    console.log('Renderer crashed:', details);
+    // Prevent the window from closing (if supported by event, otherwise just logs)
+    // event.preventDefault(); // Note: 'render-process-gone' isn't cancellable in all versions, but logging helps.
+  });
+
+  mainWindow.on('unresponsive', () => {
+    console.log('Window became unresponsive');
+  });
+
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Failed to load:', errorCode, errorDescription);
+  });
+
   if (isDev) {
     loadWithRetry(mainWindow, 'http://127.0.0.1:5173');
+    mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
