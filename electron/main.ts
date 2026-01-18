@@ -4,9 +4,8 @@ import * as path from 'path';
 let mainWindow: BrowserWindow | null = null;
 
 // GPU + performance flags
-app.commandLine.appendSwitch('enable-gpu-rasterization');
-app.commandLine.appendSwitch('enable-zero-copy');
-app.commandLine.appendSwitch('enable-features', 'Metal'); // macOS
+app.commandLine.appendSwitch('disable-gpu');
+app.commandLine.appendSwitch('disable-gpu-compositing');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 
 const isDev = !app.isPackaged;

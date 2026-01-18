@@ -37,9 +37,8 @@ const electron_1 = require("electron");
 const path = __importStar(require("path"));
 let mainWindow = null;
 // GPU + performance flags
-electron_1.app.commandLine.appendSwitch('enable-gpu-rasterization');
-electron_1.app.commandLine.appendSwitch('enable-zero-copy');
-electron_1.app.commandLine.appendSwitch('enable-features', 'Metal'); // macOS
+electron_1.app.commandLine.appendSwitch('disable-gpu');
+electron_1.app.commandLine.appendSwitch('disable-gpu-compositing');
 electron_1.app.commandLine.appendSwitch('disable-renderer-backgrounding');
 const isDev = !electron_1.app.isPackaged;
 function createWindow() {
