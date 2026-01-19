@@ -15,7 +15,8 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
   onConfirm,
   onCancel,
   loading = false
-}) => {
+}) => { 
+  
   return (
     <AnimatePresence>
       <motion.div 
@@ -30,7 +31,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
             className="bg-[#0E1430] border border-white/10 p-6 rounded-2xl shadow-2xl max-w-sm w-full mx-4"
-            onClick={e => e.stopPropagation()}
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
         >
             <h3 className="text-lg font-bold text-white mb-2">{title}</h3>
             <p className="text-sm text-white/60 mb-6">{message}</p>
